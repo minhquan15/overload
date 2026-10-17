@@ -1,0 +1,2921 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Overload">
+<meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef0f3" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif;-webkit-text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Overload</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="vendor/fonts.css">
+<style>
+/* Layout: two tabs. "Buổi tập" is a single phone-width column for logging sets at the gym;
+   "Bản đồ cơ" is the 3D stage on the left with the muscle panel on the right (stacks on phones). */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --stage: #e2e5ea;
+  --ink: #1b1d22;
+  --muted: #5b6270;
+  --line: #d4d8df;
+  --accent: #b3313a;
+  --accent-ink: #ffffff;
+  --hot: #c63f2f;
+  --warn: #a8700f;
+  --ok: #2c8a57;
+  /* Push / Pull / Legs on the calendar */
+  --c-push: #2a78d6;
+  --c-pull: #eb6834;
+  --c-legs: #1baf7a;
+  --surface-2: #f2f4f7;
+  --shadow: 0 1px 2px rgba(20, 24, 32, .06), 0 1px 1px rgba(20, 24, 32, .04);
+  --r-sm: 8px; --r-md: 12px; --r-pill: 999px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #1a1d23; --stage: #15181d; --ink: #eceef2; --muted: #9aa1ad;
+    --line: #2b3038; --accent: #e3585d; --accent-ink: #160809; --hot: #ef6a55; --warn: #e2a93b; --ok: #4cbb7c;
+    --c-push: #3987e5; --c-pull: #d95926; --c-legs: #199e70;
+    --surface-2: #232730; --shadow: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #1a1d23; --stage: #15181d; --ink: #eceef2; --muted: #9aa1ad;
+  --line: #2b3038; --accent: #e3585d; --accent-ink: #160809; --hot: #ef6a55; --warn: #e2a93b; --ok: #4cbb7c;
+  --c-push: #3987e5; --c-pull: #d95926; --c-legs: #199e70;
+  --surface-2: #232730; --shadow: none;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 5vw, 44px); line-height: 1; margin: 0; letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); margin: 0; font-size: 14px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { position: relative; background: var(--stage); border-radius: 14px; height: min(78vh, 720px); min-height: 440px; overflow: hidden; touch-action: none; }
+@media (max-width: 860px) { .stage { height: 62vh; min-height: 400px; } }
+/* Desktop: the model stays in view while the right column scrolls, so layer toggles are visible */
+@media (min-width: 861px) { .stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); } }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.stage .tools { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; pointer-events: none; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; pointer-events: auto; }
+.seg button { border: 0; background: transparent; color: var(--muted); font: 500 13px/1 var(--font-body); padding: 8px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.hint { position: absolute; left: 12px; bottom: 12px; max-width: calc(100% - 24px); font-size: 12px; color: var(--muted); pointer-events: none; }
+.tip { position: absolute; z-index: 2; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; line-height: 1.3; padding: 6px 8px; border-radius: 6px; max-width: 220px; }
+.credit { font-size: 12px; color: var(--muted); margin: 0; }
+.credit a { color: inherit; }
+.legend { position: absolute; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; color: var(--muted); max-width: calc(100% - 24px); }
+.celebrate { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3; display: grid; gap: 8px; padding: 14px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid var(--line); border-radius: var(--r-md); }
+.celebrate .label { margin: 0; color: var(--accent); }
+.celebrate h2 { margin: 0; font: 700 30px/1 var(--font-display); text-transform: uppercase; }
+.cel-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cel-stats div { background: var(--stage); border-radius: var(--r-sm); padding: 8px; min-width: 0; }
+.cel-stats b { display: block; font: 600 19px/1.1 var(--font-data); font-variant-numeric: tabular-nums; }
+.cel-stats small { color: var(--muted); font-size: 11px; }
+#cel-pr-box b { color: var(--ok); }
+.cel-mus { margin: 0; font-size: 13px; color: var(--muted); }
+.celebrate .btn-row { margin-top: 2px; }
+/* phones: the stage grows for the moment and the figure sits above the summary card */
+@media (max-width: 860px) {
+  .stage.celebrating { height: 86vh; }
+  .celebrate { padding: 12px; gap: 6px; }
+  .celebrate h2 { font-size: 26px; }
+  .cel-stats b { font-size: 17px; }
+}
+.stage.celebrating .tools, .stage.celebrating .hint, .stage.celebrating .legend, .stage.celebrating .tip { visibility: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .celebrate:not([hidden]) { animation: cel-in .5s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes cel-in { from { opacity: 0; transform: translateY(18px); } }
+}
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+.panel { display: grid; gap: 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: var(--s4); box-shadow: var(--shadow); min-width: 0; }
+.label { font: 600 11px/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.layers { display: grid; gap: 2px; }
+.layer { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; cursor: pointer; }
+.layer input { accent-color: var(--accent); width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
+.layer span { display: grid; gap: 1px; min-width: 0; }
+.layer b { font-weight: 500; font-size: 14px; }
+.layer small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.chip .dot.hot { background: var(--hot); } .chip .dot.warn { background: var(--warn); } .chip .dot.ok { background: var(--ok); }
+
+.m-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.m-name { font-family: var(--font-display); font-weight: 700; font-size: 32px; line-height: 1; margin: 0; text-transform: uppercase; }
+.m-latin { font-style: italic; color: var(--muted); margin: 4px 0 0; font-size: 14px; }
+.m-fn { margin: 12px 0 14px; max-width: 65ch; }
+.pill { font: 600 12px/1 var(--font-body); padding: 6px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }
+.pill.hot { color: var(--hot); } .pill.warn { color: var(--warn); } .pill.ok { color: var(--ok); } .pill.none { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: top; }
+td.sr { text-align: right; font-family: var(--font-data); font-size: 13px; color: var(--muted); white-space: nowrap; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.meta { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day { border: 1px solid var(--line); border-radius: 8px; padding: 6px 4px; min-height: 92px; display: flex; flex-direction: column; gap: 4px; align-items: center; min-width: 0; }
+.day.today { border-color: var(--accent); }
+.day b { font: 600 11px/1 var(--font-body); letter-spacing: .06em; color: var(--muted); }
+.day small { font: 500 10px/1 var(--font-data); color: var(--muted); }
+.day .tag { font-size: 10px; line-height: 1.2; background: var(--stage); border-radius: 4px; padding: 2px 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+.stack { display: grid; gap: var(--s3); min-width: 0; }
+.exname { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.exname small { display: block; color: var(--muted); font-size: 12px; text-decoration: none; }
+td.act { width: 40px; text-align: right; padding-left: 8px; }
+
+/* ---------- Tabs ---------- */
+
+/* ---------- Workout (phone first) ---------- */
+.workout { width: 100%; max-width: 640px; }
+.w-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 8px 16px; }
+.w-head b { font: 700 28px/1 var(--font-display); text-transform: uppercase; }
+.w-left { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.w-left .clock { margin-left: 0; }
+.ring { position: relative; width: 40px; height: 40px; flex: none; display: inline-grid; place-items: center; }
+.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 3.5; }
+.ring .rt { stroke: var(--line); }
+.ring .rf { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 94.25; stroke-dashoffset: 94.25; transition: stroke-dashoffset .5s ease, stroke .3s; }
+.ring span { font: 600 10px/1 var(--font-data); font-variant-numeric: tabular-nums; }
+.ring.full .rf { stroke: var(--ok); }
+.ring.full span { color: var(--ok); }
+.w-head .b-primary.glow { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.w-head .clock { font: 500 15px/1 var(--font-data); color: var(--muted); margin-left: 10px; font-variant-numeric: tabular-nums; }
+.ex { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 8px; min-width: 0; }
+.ex h3 { margin: 0; font-size: 17px; line-height: 1.25; }
+.ex .vi { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.mus { display: flex; flex-wrap: wrap; gap: 4px; }
+.mus span { font-size: 11px; line-height: 1; padding: 5px 7px; border-radius: 6px; background: var(--stage); color: var(--muted); }
+.mus span.p { background: var(--accent); color: var(--accent-ink); }
+.ex .info { margin: 0; font-size: 13px; color: var(--muted); }
+.ex .info b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ex .cue { margin: 0; font-size: 13px; background: var(--stage); border-radius: 8px; padding: 8px 10px; }
+.demo { display: block; width: 100%; aspect-ratio: 3 / 2; margin: 0; border-radius: 10px; overflow: hidden; background: var(--stage); }
+.demo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.demo.two { aspect-ratio: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: none; }
+.demo.two img { aspect-ratio: 3 / 2; height: auto; border-radius: 10px; }
+td .demo { max-width: 320px; margin-top: 8px; }
+td .tools { display: flex; gap: 14px; }
+.t-why { margin: 8px 0 0; font-size: 14px; }
+
+.pe-row { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 8px; }
+.pe-row b { font-weight: 600; font-size: 15px; }
+.pe-row small { display: block; color: var(--muted); font-size: 12px; }
+.pe-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.pe-n { font: 500 15px/1 var(--font-data); min-width: 6ch; text-align: center; font-variant-numeric: tabular-nums; }
+.pe-alt { display: grid; gap: 6px; }
+.sets { display: grid; gap: 6px; }
+.set-n { font: 500 13px/1 var(--font-data); color: var(--muted); text-align: center; }
+.num { position: relative; display: block; min-width: 0; }
+.num input::placeholder { color: var(--muted); opacity: .6; font-size: 15px; }
+.num input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.num span { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--muted); pointer-events: none; }
+.set .x { color: var(--muted); text-align: center; }
+.ex-foot { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
+.picker { display: grid; gap: 10px; }
+/* warm-up and stretch cards: calmer, with a tag; no kg column */
+.ex.mob { background: color-mix(in srgb, var(--ok) 6%, var(--surface)); }
+.mob-tag { display: inline-block; font: 600 10px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ok); margin-bottom: 4px; }
+.set.nokg > label.num:first-of-type, .set.nokg > .x { visibility: hidden; }
+#flex-card { display: grid; gap: 12px; }
+#flex-card .c-head .meta.due { color: var(--accent); font-weight: 600; }
+.ft { display: grid; gap: 6px; }
+.ft b { font-size: 15px; }
+.ft small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.ft-in { max-width: 160px; }
+.ft-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 4px 10px; }
+.ft-pair small { margin-top: -2px; }
+#ft-trend { margin: 0; }
+#w-summary, #w-picker, .ex { scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 80px); }
+.pk-head { display: flex; gap: 8px; }
+.pk-head input { flex: 1; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: 400 16px/1 var(--font-body); padding: 0 12px; }
+.pk-list { display: grid; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.pk-item { min-height: 44px; text-align: left; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; font: 500 14px/1.3 var(--font-body); }
+.pk-item small { color: var(--muted); font-size: 12px; }
+.sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.sum div { background: var(--stage); border-radius: 10px; padding: 10px; min-width: 0; }
+.sum b { display: block; font: 600 20px/1.1 var(--font-data); font-variant-numeric: tabular-nums; }
+.sum small { color: var(--muted); font-size: 12px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.hist details { border-top: 1px solid var(--line); padding: 10px 0; }
+.hist summary { cursor: pointer; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; list-style: none; }
+.hist summary::-webkit-details-marker { display: none; }
+.hist summary span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.hist ul { margin: 8px 0 4px; padding-left: 18px; font-size: 13px; }
+.hist li { margin: 3px 0; }
+.hist .kg { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+
+/* Rest timer pinned to the bottom of the screen */
+  padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body.has-timer { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 30; background: var(--ink); color: var(--bg); font-size: 14px; padding: 10px 14px; border-radius: 10px; max-width: calc(100% - 32px); }
+.toast.pr { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+/* ---------- Progress (Phase 2) ---------- */
+.c-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; }
+.c-head .label { margin: 0; }
+.c-head .meta { margin: 0; font-variant-numeric: tabular-nums; }
+/* Personal record on a ticked set: a second line under the row */
+.set .sub { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.set .pr { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 12px; line-height: 1.3; color: var(--ink); }
+.set .cmp { font: 500 12px/1.3 var(--font-data); font-variant-numeric: tabular-nums; color: var(--muted); }
+.set .cmp.up { color: var(--ok); font-weight: 600; }
+.set .pr b { font: 600 10px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; background: var(--accent); color: var(--accent-ink); padding: 4px 6px; border-radius: 5px; }
+.ex h3 .exname { text-decoration-color: var(--muted); }
+
+/* Weekly sets per muscle group: one row per group, 10–20 band shaded on every track */
+.wv { display: grid; gap: 7px; }
+.wv-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 38px; align-items: center; gap: 10px; font-size: 13px; }
+.wv-row > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wv-row > b { font: 500 13px/1 var(--font-data); text-align: right; font-variant-numeric: tabular-nums; }
+.wv-row > b.zero { color: var(--muted); }
+.wv-track { position: relative; height: 12px; border-radius: 4px; background: var(--stage); }
+.wv-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--ok) 20%, transparent); border-inline: 1px solid color-mix(in srgb, var(--ok) 55%, transparent); }
+.wv-fill { position: absolute; left: 0; top: 3px; bottom: 3px; border-radius: 0 4px 4px 0; background: var(--line); }
+.wv-fill.warn { background: var(--warn); } .wv-fill.ok { background: var(--ok); } .wv-fill.hot { background: var(--hot); }
+.wv-axis { color: var(--muted); font: 500 11px/1 var(--font-data); }
+.wv-axis .wv-track { background: none; height: 12px; }
+.wv-axis .wv-track span { position: absolute; top: 0; transform: translateX(-50%); }
+.wv-axis .wv-track span:first-child { transform: none; }
+.wv-axis > span:last-child { text-align: right; font-family: var(--font-body); }
+
+/* Month calendar: Monday first, each training day tinted by its PPL type */
+.cal-nav { display: flex; align-items: center; gap: 4px; }
+.cal-nav b { font: 600 14px/1 var(--font-body); min-width: 9.5ch; text-align: center; font-variant-numeric: tabular-nums; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal .wd { font: 600 10px/1 var(--font-body); letter-spacing: .06em; color: var(--muted); text-align: center; padding: 2px 0 4px; }
+.cd { --c: var(--line); position: relative; min-height: 48px; min-width: 0; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--ink); padding: 4px 3px; display: flex; flex-direction: column; align-items: center; gap: 3px; font: 500 12px/1 var(--font-data); font-variant-numeric: tabular-nums; }
+.cd.future { color: var(--muted); opacity: .55; }
+.cd.has { cursor: pointer; background: color-mix(in srgb, var(--c) 18%, var(--surface)); border-color: color-mix(in srgb, var(--c) 60%, transparent); }
+.cd.push { --c: var(--c-push); } .cd.pull { --c: var(--c-pull); } .cd.legs { --c: var(--c-legs); } .cd.free { --c: var(--muted); }
+.cd.manual { border-style: dashed; border-color: var(--muted); }
+.cd.today { box-shadow: inset 0 0 0 2px var(--accent); }
+.cd[aria-pressed="true"] { border-color: var(--ink); border-width: 2px; padding: 3px 2px; }
+.cd .ty { font: 600 10px/1.1 var(--font-body); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.cal-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.cal-key span { display: inline-flex; align-items: center; gap: 5px; }
+.cal-key i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.cal-key i.manual { background: none; border: 1px dashed var(--muted); }
+.cal-day { margin: 12px 0 0; border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; font-size: 13px; }
+.cal-day p { margin: 0; }
+.cal-day .meta { margin: 0; }
+.cal-day ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.cal-day .kg { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+
+/* Exercise progress sheet (full screen on phones) */
+.sheet { position: fixed; inset: 0; z-index: 15; background: var(--bg); overflow-y: auto; overscroll-behavior: contain;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body.has-timer .sheet { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 140px); }
+html.sheet-open, html.sheet-open body { overflow: hidden; }
+.sheet-in { max-width: 640px; margin: 0 auto; display: grid; gap: 12px; }
+.sheet h2 { font: 700 30px/1 var(--font-display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+.sheet .vi { margin: 4px 0 12px; color: var(--muted); font-size: 13px; }
+.sheet .sum b { font-size: 17px; }
+.seg.full { display: flex; width: 100%; }
+.seg.full button { flex: 1; padding: 9px 6px; }
+.chart { position: relative; margin-top: 12px; min-height: 220px; }
+.chart svg { display: block; width: 100%; height: 220px; overflow: visible; touch-action: pan-y; }
+.chart text { fill: var(--muted); font: 500 11px var(--font-data); font-variant-numeric: tabular-nums; }
+.chart .grid-l { stroke: var(--line); stroke-width: 1; }
+.chart .area { fill: var(--accent); fill-opacity: .1; stroke: none; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .pt { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.chart .pt.on { stroke: var(--ink); }
+.chart .guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart text.end { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.c-tip { position: absolute; z-index: 2; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; line-height: 1.35; padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translateX(-50%); }
+.c-tip b { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.pg-table-wrap { overflow-x: auto; }
+.pg-table td { font-size: 13px; padding: 8px 8px 8px 0; }
+.pg-table td:first-child { white-space: nowrap; }
+.pg-table td.kg { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+.pg-table td.sr { padding-right: 0; color: var(--ink); }
+.pg-table th { text-align: left; font: 600 11px/1.2 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 8px 6px 0; }
+.pg-table th:last-child { text-align: right; padding-right: 0; }
+
+/* ---------- Design system: buttons, icons, callouts ---------- */
+.ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.b { --b-bg: transparent; --b-fg: var(--ink); --b-bd: transparent; display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s4);
+  border: 1px solid var(--b-bd); border-radius: var(--r-md); background: var(--b-bg); color: var(--b-fg); font: 600 14px/1.2 var(--font-body); cursor: pointer; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; user-select: none; transition: background-color .15s, border-color .15s, color .15s, transform .1s; }
+.b-sm { min-height: 36px; padding: 0 var(--s3); font-size: 13px; border-radius: var(--r-sm); }
+.b-sm .ico { width: 16px; height: 16px; }
+@media (max-width: 860px), (pointer: coarse) { .b-sm { min-height: 44px; } }
+.b-block { width: 100%; }
+.b-pill { border-radius: var(--r-pill); }
+.b-primary { --b-bg: var(--accent); --b-fg: var(--accent-ink); }
+.b-secondary { --b-bg: var(--surface-2); --b-bd: var(--line); }
+.b-ghost { --b-fg: var(--muted); padding: 0 var(--s2); }
+.b-danger { --b-fg: var(--hot); --b-bg: color-mix(in srgb, var(--hot) 10%, var(--surface)); --b-bd: color-mix(in srgb, var(--hot) 28%, transparent); }
+.b-ghost.b-danger { --b-bg: transparent; --b-bd: transparent; }
+.b-icon { padding: 0; width: 44px; min-width: 44px; }
+.b-icon.b-sm { width: 36px; min-width: 36px; }
+@media (max-width: 860px), (pointer: coarse) { .b-icon.b-sm { width: 44px; min-width: 44px; } }
+.b-secondary[aria-pressed="true"] { --b-bg: var(--accent); --b-fg: var(--accent-ink); --b-bd: var(--accent); }
+.b:hover:not(:disabled) { background: color-mix(in srgb, var(--b-bg) 90%, var(--ink)); }
+.b-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.b-ghost.b-danger:hover:not(:disabled) { color: var(--hot); }
+.b:active:not(:disabled) { transform: scale(.98); background: color-mix(in srgb, var(--b-bg) 84%, var(--ink)); }
+.b-ghost:active:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.b:disabled { opacity: .4; cursor: default; }
+.b:focus-visible, .seg button:focus-visible, .tabs button:focus-visible, .ppl button:focus-visible, .cd:focus-visible, .pk-item:focus-visible, .exname:focus-visible, .pose input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.callout { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; padding: var(--s2) var(--s3); border-radius: var(--r-sm); font-size: 13px; line-height: 1.4; font-weight: 500;
+  --c: var(--ok); color: var(--ink); background: color-mix(in srgb, var(--c) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+.callout .ico { color: var(--c); margin-top: 1px; width: 16px; height: 16px; }
+.callout.down { --c: var(--hot); } .callout.stall { --c: var(--warn); } .callout.deload { --c: var(--c-push); }
+.callout .b { margin-left: auto; min-height: 28px; padding: 0 var(--s2); }
+.callout span { min-width: 0; }
+
+/* Tabs: segmented control */
+.tabs { display: flex; gap: var(--s1); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s1); width: 100%; max-width: 420px; box-shadow: var(--shadow); }
+.tabs button { flex: 1; min-height: 44px; border: 0; background: transparent; color: var(--muted); font: 600 14px/1 var(--font-body); padding: 0 var(--s3); border-radius: var(--r-sm); cursor: pointer; transition: background-color .2s, color .2s; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+
+/* Idle screen */
+#today { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); padding: var(--s5) var(--s4); }
+#today .label { color: var(--accent); }
+.t-big { font: 700 48px/.95 var(--font-display); text-transform: uppercase; margin: 0; }
+.t-why { margin: var(--s2) 0 0; font-size: 14px; }
+#today .b { margin-top: var(--s4); min-height: 52px; font-size: 16px; }
+#deload-card { background: color-mix(in srgb, var(--c-push) 9%, var(--surface)); border-color: color-mix(in srgb, var(--c-push) 28%, var(--line)); display: grid; gap: var(--s2); justify-items: start; }
+#deload-card .label { margin: 0; color: var(--c-push); display: flex; align-items: center; gap: var(--s2); }
+#deload-card .t-why { margin: 0; }
+#deload-card .b-block { margin-top: var(--s1); }
+.ppl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
+.ppl button { --c: var(--muted); position: relative; text-align: left; border: 1px solid color-mix(in srgb, var(--c) 28%, var(--line)); background: color-mix(in srgb, var(--c) 8%, var(--surface)); color: var(--ink); border-radius: var(--r-md); padding: var(--s3) var(--s3); cursor: pointer; display: grid; gap: var(--s1); align-content: start; min-height: 112px; min-width: 0; transition: transform .1s, border-color .15s; }
+.ppl button:active { transform: scale(.98); }
+.ppl button[data-day="push"] { --c: var(--c-push); } .ppl button[data-day="pull"] { --c: var(--c-pull); } .ppl button[data-day="legs"] { --c: var(--c-legs); }
+.ppl button .ico { color: var(--c); width: 20px; height: 20px; }
+.ppl button b { font: 700 24px/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
+.ppl button small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.ppl button.next { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ppl .badge { position: absolute; top: var(--s2); right: var(--s2); font: 600 10px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.start-links { display: grid; gap: var(--s1); margin-top: var(--s2); justify-items: start; }
+
+/* Workout cards: the set row is the hero */
+.ex { box-shadow: var(--shadow); }
+.ex .vi { margin: 2px 0 0; }
+.sets { display: grid; gap: var(--s2); }
+.set { display: grid; grid-template-columns: 18px minmax(0, 1fr) 6px minmax(0, 1fr) 48px 32px; align-items: center; gap: 4px; padding: 2px 0; border-radius: var(--r-md); }
+.set-n { font: 500 13px/1 var(--font-data); color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.num input { width: 100%; height: 48px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--ink); font: 500 18px/1 var(--font-data); padding: 0 28px 0 10px; font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.set.next .num input { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.set.done .num input { border-color: transparent; background: var(--surface-2); color: var(--muted); }
+.tick { width: 48px; min-width: 48px; height: 48px; --b-bd: var(--line); --b-fg: var(--muted); border-width: 2px; }
+.tick .ico { width: 22px; height: 22px; stroke-width: 2.25; }
+.tick[aria-pressed="true"] { --b-bg: var(--ok); --b-bd: var(--ok); --b-fg: var(--surface); }
+.del { width: 32px; min-width: 32px; padding: 0; }
+.ex-foot { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s1); align-items: center; }
+.ex-foot .b-block { flex: 1 1 100%; margin-bottom: var(--s1); }
+.ex-foot .b-ghost { padding: 0 var(--s2); }
+.ex-foot .spacer { flex: 1; }
+.w-head .b-primary { min-height: 44px; }
+.b.done { --b-bg: transparent; --b-fg: var(--ok); --b-bd: var(--ok); }
+
+/* Rest timer */
+.timer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--ink); color: var(--bg); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s3);
+  padding-top: var(--s4); padding-bottom: calc(var(--s3) + env(safe-area-inset-bottom, 0px));
+  padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
+.timer .t-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; background: color-mix(in srgb, var(--bg) 22%, transparent); overflow: hidden; }
+.timer .t-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s linear; }
+.timer .t-label { display: flex; align-items: center; gap: var(--s1); font-size: 12px; opacity: .8; }
+.timer .t-label .ico { width: 14px; height: 14px; }
+.timer .t-time { display: block; font: 600 44px/1 var(--font-data); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.timer .t-next { grid-column: 1 / -1; justify-content: flex-start; min-height: 40px; padding: 0 var(--s2); min-width: 0; margin-top: calc(var(--s1) * -1); }
+.timer .t-next span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.confetti { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 40; }
+.confetti i { position: absolute; left: 0; top: 0; width: 7px; height: 11px; border-radius: 2px; opacity: 0; animation: burst .85s cubic-bezier(.2, .7, .3, 1) forwards; }
+@keyframes burst { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); } }
+.timer .t-btns { display: flex; gap: var(--s2); justify-content: flex-end; }
+.timer .b { --b-fg: var(--bg); --b-bg: color-mix(in srgb, var(--bg) 14%, transparent); --b-bd: color-mix(in srgb, var(--bg) 24%, transparent); min-height: 44px; padding: 0 var(--s3); }
+.timer .b-ghost { --b-bg: transparent; --b-bd: transparent; }
+.timer .b:hover:not(:disabled) { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
+.timer.over .t-bar i { background: var(--bg); }
+
+/* Map overlay controls */
+.pose { display: inline-flex; align-items: center; gap: var(--s2); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 14px 3px 3px; pointer-events: auto; }
+.pose button { border: 0; background: transparent; color: var(--muted); font: 500 13px/1 var(--font-body); padding: 8px 12px; border-radius: var(--r-pill); cursor: pointer; }
+.pose button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.pose input { width: 120px; accent-color: var(--accent); }
+.pose button, .pose output { white-space: nowrap; }
+.pose .pose-t { display: none; }
+.pose-body { display: inline-flex; align-items: center; gap: var(--s2); }
+.stage .tools .break { flex-basis: 100%; height: 0; }
+.seg .sm { display: none; }
+@media (max-width: 860px) {
+  .stage .tools { gap: var(--s2); justify-content: space-between; }
+  .stage .tools .break { display: none; }
+  .seg button { padding: 0 10px; min-height: 40px; }
+  .seg .lg { display: none; } .seg .sm { display: inline; }
+  .pose { padding: 3px; }
+  .pose .pose-t { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; }
+  .pose .pose-t .ico { width: 16px; height: 16px; }
+  .pose .pose-body { display: none; padding-right: 10px; }
+  .pose.open .pose-body { display: inline-flex; }
+  .pose.open { flex-basis: 100%; max-width: 100%; min-width: 0; padding-right: var(--s3); }
+  .pose.open .pose-body { flex: 1; min-width: 0; padding-right: 0; gap: 6px; }
+  .pose.open input { flex: 1; min-width: 0; width: auto; }
+  .pose.open .pose-t { background: var(--ink); color: var(--bg); }
+}
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } .b:active:not(:disabled), .ppl button:active { transform: none; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.5 1.5M9.5 3h5"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10.5 9v6l5-3z"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16l4-5 3 3 5-7"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M5 8h13l-3-3M19 16H6l3 3"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 5h11l-2.5 4L16 13H5"/></symbol>
+<symbol id="i-push" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-pull" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+<symbol id="i-legs" viewBox="0 0 24 24"><path d="M4 20h4v-5h4v-5h4V5h4"/></symbol>
+<symbol id="i-trend-up" viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7M15 8h5v5"/></symbol>
+<symbol id="i-trend-down" viewBox="0 0 24 24"><path d="M4 7l6 6 4-4 6 7M15 16h5v-5"/></symbol>
+<symbol id="i-flat" viewBox="0 0 24 24"><path d="M4 12h16M16 8l4 4-4 4"/></symbol>
+<symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-9 5-14 15-14 0 10-5 15-14 15M5 19l7-7"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></symbol>
+<symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4zM15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/></symbol>
+<symbol id="i-sound-off" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4zM16 9.5l5 5M21 9.5l-5 5"/></symbol>
+</defs></svg>
+<div class="wrap">
+  <header>
+    <h1>Over<span>load</span></h1>
+    <p class="sub">Tập Push · Pull · Legs, tăng tải đều đặn, khởi động và giãn cơ mỗi buổi.</p>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="Chế độ xem">
+    <button role="tab" type="button" id="tab-tap" aria-controls="view-tap" aria-selected="true">Buổi tập</button>
+    <button role="tab" type="button" id="tab-map" aria-controls="view-map" aria-selected="false" tabindex="-1">Bản đồ cơ</button>
+  </nav>
+
+  <section class="workout stack" id="view-tap" role="tabpanel" aria-labelledby="tab-tap">
+    <div class="stack" id="w-idle">
+      <div class="card" id="today"></div>
+      <div class="card" id="deload-card" hidden></div>
+      <div class="card">
+        <p class="label">Bắt đầu buổi tập</p>
+        <div class="ppl" id="ppl-buttons"></div>
+        <div class="start-links">
+          <button class="b b-ghost b-md" id="w-free" type="button"><svg class="ico" aria-hidden="true"><use href="#i-play"/></svg><span>Buổi tự do: tự chọn bài</span></button>
+          <button class="b b-ghost b-md" id="w-prog-open" type="button"><svg class="ico" aria-hidden="true"><use href="#i-edit"/></svg><span>Giáo án: sửa bài từng ngày</span></button>
+          <button class="b b-ghost b-md" id="w-mob" type="button" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-leaf"/></svg><span>Khởi động &amp; giãn cơ: bật</span></button>
+          <button class="b b-ghost b-md" id="w-sound" type="button" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-sound"/></svg><span>Âm thanh &amp; rung: bật</span></button>
+        </div>
+        <p class="meta">Tăng cơ: mỗi nhóm cơ 10–20 hiệp mỗi tuần, phần lớn các hiệp trong khoảng 6–15 lần, dừng khi còn sức làm thêm 1–3 lần.</p>
+      </div>
+      <div class="card" id="flex-card">
+        <div class="c-head"><p class="label">Kiểm tra độ dẻo</p><span class="meta" id="flex-due"></span></div>
+        <div class="ft">
+          <b>Đứng gập người chạm chân</b>
+          <small>Hai chân khép, gối thẳng, khởi động nhẹ trước. Gập người thả tay xuống, đo từ đầu ngón tay giữa tới sàn. Chạm sàn ghi 0, qua khỏi sàn ghi số âm.</small>
+          <label class="num ft-in"><input id="ft-toe" type="text" inputmode="decimal" autocomplete="off" placeholder="—" aria-label="Khoảng cách từ ngón tay tới sàn, cm"><span>cm</span></label>
+        </div>
+        <div class="ft">
+          <b>Chạm tay sau lưng</b>
+          <small>Một tay với qua vai xuống lưng, tay kia vòng từ dưới lên. Đo khoảng hở giữa hai đầu ngón tay giữa. Chạm nhau ghi 0, chồng lên nhau ghi số âm.</small>
+          <div class="ft-pair">
+            <label class="num ft-in"><input id="ft-shR" type="text" inputmode="decimal" autocomplete="off" placeholder="—" aria-label="Tay phải ở trên, khoảng hở cm"><span>cm</span></label>
+            <label class="num ft-in"><input id="ft-shL" type="text" inputmode="decimal" autocomplete="off" placeholder="—" aria-label="Tay trái ở trên, khoảng hở cm"><span>cm</span></label>
+            <small>Tay phải ở trên</small><small>Tay trái ở trên</small>
+          </div>
+        </div>
+        <button class="b b-secondary b-md" id="ft-save" type="button">Lưu lần đo</button>
+        <p class="meta" id="ft-trend"></p>
+      </div>
+      <div class="card">
+        <div class="c-head"><p class="label">Số hiệp tuần này</p><span class="meta" id="wv-range"></span></div>
+        <div class="wv" id="wv"></div>
+        <p class="meta" id="wv-sum"></p>
+      </div>
+      <div class="card">
+        <div class="c-head">
+          <p class="label">Lịch tập</p>
+          <div class="cal-nav">
+            <button type="button" class="b b-secondary b-sm b-icon" id="cal-prev" aria-label="Tháng trước"><svg class="ico" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+            <b id="cal-title" aria-live="polite"></b>
+            <button type="button" class="b b-secondary b-sm b-icon" id="cal-next" aria-label="Tháng sau"><svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+          </div>
+        </div>
+        <div class="cal" id="cal"></div>
+        <div class="cal-key" id="cal-key"></div>
+        <div class="cal-day" id="cal-day" hidden></div>
+      </div>
+      <div class="card hist">
+        <p class="label">Buổi gần đây</p>
+        <div id="w-history"></div>
+        <p class="empty" id="w-history-empty">Chưa có buổi nào. Chọn Push, Pull hoặc Legs ở trên để bắt đầu.</p>
+        <p class="meta" id="w-store-note">Nhật ký đang lưu trên trình duyệt này.</p>
+        <div class="start-links" id="backup" hidden>
+          <button class="b b-secondary b-sm" id="bk-export" type="button">Sao lưu dữ liệu</button>
+          <label class="b b-ghost b-sm" for="bk-file">Khôi phục từ file</label>
+          <input type="file" id="bk-file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack" id="w-active" hidden>
+      <div class="w-head">
+        <div class="w-left"><b id="w-title">Push</b><span class="clock" id="w-clock">0:00</span>
+          <span class="ring" id="w-ring" role="img" aria-label="Tiến độ buổi tập"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="rt" cx="18" cy="18" r="15"/><circle class="rf" cx="18" cy="18" r="15"/></svg><span id="w-ring-t">0/0</span></span></div>
+        <button class="b b-primary b-sm" id="w-finish" type="button"><svg class="ico" aria-hidden="true"><use href="#i-flag"/></svg><span>Kết thúc</span></button>
+      </div>
+      <div class="card" id="w-summary" hidden>
+        <p class="label">Tổng kết buổi tập</p>
+        <div class="sum">
+          <div><b id="sum-sets">0</b><small>hiệp đã xong</small></div>
+          <div><b id="sum-vol">0</b><small>kg tổng khối lượng</small></div>
+          <div><b id="sum-time">0</b><small>phút</small></div>
+        </div>
+        <div class="mus" id="sum-mus"></div>
+        <p class="meta" id="sum-pr" hidden></p>
+        <p class="meta" id="sum-note">Chưa có hiệp nào được đánh dấu ✓ nên chưa có gì để lưu.</p>
+        <div class="btn-row">
+          <button class="b b-primary b-md" id="sum-save" type="button"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Lưu buổi tập</span></button>
+          <button class="b b-secondary b-md" id="sum-back" type="button">Tập tiếp</button>
+          <button class="b b-danger b-md" id="sum-discard" type="button"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg><span>Bỏ buổi này</span></button>
+        </div>
+      </div>
+      <div class="stack" id="w-list"></div>
+      <p class="empty" id="w-empty" hidden>Chưa có bài nào. Bấm “Thêm bài tập” để chọn.</p>
+      <button class="b b-secondary b-md b-block" id="w-add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>Thêm bài tập</span></button>
+    </div>
+    <div class="stack" id="w-prog" hidden></div>
+      <div class="card picker" id="w-picker" hidden>
+        <div class="pk-head">
+          <input id="pk-q" type="search" placeholder="Tìm: bench, ngực, đùi sau…" aria-label="Tìm bài tập" autocomplete="off">
+          <button class="b b-secondary b-md" id="pk-close" type="button">Đóng</button>
+        </div>
+        <div class="chips" id="pk-filters"></div>
+        <div class="pk-list" id="pk-list"></div>
+      </div>
+  </section>
+
+  <section class="stack" id="view-map" role="tabpanel" aria-labelledby="tab-map" hidden>
+  <div class="grid">
+    <div class="stage" id="stage">
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Góc nhìn">
+          <button id="v-front" aria-pressed="true"><span class="lg">Mặt trước</span><span class="sm">Trước</span></button>
+          <button id="v-back" aria-pressed="false"><span class="lg">Mặt sau</span><span class="sm">Sau</span></button>
+          <button id="v-spin" aria-pressed="false"><span class="lg">Tự xoay</span><span class="sm">Xoay</span></button>
+        </div>
+        <div class="seg" role="group" aria-label="Chế độ màu">
+          <button id="m-anat" aria-pressed="true"><span class="lg">Giải phẫu</span><span class="sm">Cơ</span></button>
+          <button id="m-rec" aria-pressed="false"><span class="lg">Phục hồi</span><span class="sm">Hồi phục</span></button>
+          <button id="m-vol" aria-pressed="false"><span class="lg">Khối lượng tuần</span><span class="sm">Tuần</span></button>
+        </div>
+        <span class="break"></span>
+        <div class="pose" id="pose" role="group" aria-label="Tư thế tay">
+          <button type="button" class="pose-t" id="pose-toggle" aria-expanded="false"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span>Tư thế</span></button>
+          <div class="pose-body">
+            <button id="arm-toggle" aria-pressed="false">Giơ tay</button>
+            <input type="range" id="arm-angle" min="0" max="150" step="1" value="0" aria-label="Góc giơ tay, tính bằng độ">
+            <output id="arm-val" for="arm-angle">0°</output>
+          </div>
+        </div>
+      </div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="hint" id="hint">Đang tải mô hình…</div>
+      <div class="legend" id="legend" hidden></div>
+      <div class="celebrate" id="celebrate" role="dialog" aria-labelledby="cel-title" hidden>
+        <p class="label" id="cel-kicker">Hoàn thành buổi tập</p>
+        <h2 id="cel-title">Push</h2>
+        <div class="cel-stats">
+          <div><b id="cel-sets">0</b><small>hiệp</small></div>
+          <div><b id="cel-vol">0</b><small>kg</small></div>
+          <div><b id="cel-min">0</b><small>phút</small></div>
+          <div id="cel-pr-box"><b id="cel-pr">0</b><small>kỷ lục</small></div>
+        </div>
+        <p class="cel-mus" id="cel-mus"></p>
+        <p class="cel-mus" id="cel-load">Đang tải mô hình 3D…</p>
+        <div class="btn-row">
+          <button class="b b-primary b-md" id="cel-done" type="button">Xong</button>
+          <button class="b b-secondary b-md" id="cel-map" type="button">Ở lại bản đồ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <section class="card" aria-live="polite">
+        <div class="m-head">
+          <div>
+            <h2 class="m-name" id="m-name">Ngực</h2>
+            <p class="m-latin" id="m-latin">Pectoralis major</p>
+          </div>
+          <span class="pill none" id="m-status">Chưa tập</span>
+        </div>
+        <p class="m-fn" id="m-fn"></p>
+        <p class="label">Bài tập · hiệp × lần (tăng cơ)</p>
+        <table><tbody id="m-ex"></tbody></table>
+        <button class="b b-primary b-md b-block" id="m-log" style="margin-top:var(--s3)">Đánh dấu đã tập hôm nay</button>
+        <p class="meta" id="m-rest"></p>
+      </section>
+
+      <section class="card">
+        <p class="label">Nhóm cơ</p>
+        <div class="chips" id="chips"></div>
+      </section>
+
+      <section class="card">
+        <p class="label">Lớp hiển thị</p>
+        <div class="layers" id="layers"></div>
+      </section>
+
+      <section class="card">
+        <p class="label">7 ngày qua</p>
+        <div class="week" id="week"></div>
+        <p class="empty" id="week-empty">Chưa có buổi tập nào trong 7 ngày qua.</p>
+        <p class="meta" id="store-note">Nhật ký đang lưu trên trình duyệt này.</p>
+      </section>
+    </div>
+  </div>
+  <p class="credit">Mô hình 3D: <a href="https://www.z-anatomy.com" target="_blank" rel="noopener">Z-Anatomy</a> (CC BY-SA 4.0), dựa trên <a href="https://lifesciencedb.jp/bp3d/" target="_blank" rel="noopener">BodyParts3D</a> © DBCLS (CC BY-SA 2.1 JP). Đã lược bớt chi tiết cho web. Ảnh bài tập: <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener">free-exercise-db</a> (phạm vi công cộng).</p>
+  </section>
+</div>
+
+<div class="timer" id="timer" hidden>
+  <div><span class="t-label"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span id="t-label">Nghỉ giữa hiệp</span></span><span class="t-time" id="t-time" role="timer">0:00</span></div>
+  <div class="t-btns">
+    <button type="button" class="b b-secondary b-sm" id="t-minus" aria-label="Bớt 15 giây">−15s</button>
+    <button type="button" class="b b-secondary b-sm" id="t-plus" aria-label="Thêm 15 giây">+15s</button>
+    <button type="button" class="b b-ghost b-sm" id="t-skip">Bỏ qua</button>
+  </div>
+  <button type="button" class="b b-ghost b-sm t-next" id="t-next" hidden><svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg><span id="t-next-t"></span></button>
+  <div class="t-bar"><i id="t-prog"></i></div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<div class="sheet" id="prog" role="dialog" aria-modal="true" aria-labelledby="pg-title" hidden>
+  <div class="sheet-in">
+    <div><button class="b b-secondary b-sm" id="pg-close" type="button"><svg class="ico" aria-hidden="true"><use href="#i-chev-l"/></svg><span>Quay lại</span></button></div>
+    <section class="card">
+      <h2 id="pg-title"></h2>
+      <p class="vi" id="pg-vi"></p>
+      <div class="sum" id="pg-stats"></div>
+      <div class="seg full" role="group" aria-label="Chỉ số trên biểu đồ" id="pg-metrics"></div>
+      <div class="chart" id="pg-chart"></div>
+      <p class="meta" id="pg-note"></p>
+    </section>
+    <section class="card" id="pg-list-card">
+      <p class="label">Từng buổi</p>
+      <div class="pg-table-wrap"><table class="pg-table"><thead><tr><th>Ngày</th><th>Các hiệp (kg × lần)</th><th id="pg-col"></th></tr></thead><tbody id="pg-rows"></tbody></table></div>
+    </section>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="vendor/RoomEnvironment.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* ---------- Muscle data ---------- */
+const MUSCLES = {
+  chest:     { name: "Ngực", short: "Ngực", latin: "Pectoralis major", rest: 72,
+    fn: "Khép và xoay trong cánh tay, đẩy tay ra trước. Cơ chính của mọi động tác đẩy ngang." },
+  shoulders: { name: "Vai", short: "Vai", latin: "Deltoideus", rest: 48,
+    fn: "Nâng cánh tay ra trước, sang ngang và ra sau. Gồm ba đầu: trước, giữa, sau." },
+  biceps:    { name: "Tay trước", short: "Tay trước", latin: "Biceps brachii", rest: 48,
+    fn: "Gập khuỷu tay và xoay ngửa cẳng tay. Hỗ trợ trong các động tác kéo." },
+  triceps:   { name: "Tay sau", short: "Tay sau", latin: "Triceps brachii", rest: 48,
+    fn: "Duỗi khuỷu tay. Chiếm khoảng hai phần ba khối lượng bắp tay trên." },
+  forearms:  { name: "Cẳng tay", short: "Cẳng tay", latin: "Flexores & extensores antebrachii", rest: 24,
+    fn: "Gập, duỗi cổ tay và giữ lực nắm. Lực nắm yếu thường giới hạn deadlift và kéo xà." },
+  abs:       { name: "Cơ bụng", short: "Bụng", latin: "Rectus abdominis", rest: 24,
+    fn: "Gập thân người và giữ cột sống ổn định khi gánh tạ nặng." },
+  obliques:  { name: "Bụng chéo", short: "Bụng chéo", latin: "Obliquus externus abdominis", rest: 24,
+    fn: "Xoay và nghiêng thân, chống lại lực xoắn lên cột sống." },
+  serratus:  { name: "Răng trước", short: "Răng trước", latin: "Serratus anterior", rest: 48,
+    fn: "Kéo xương bả vai ra trước và xoay lên khi giơ tay qua đầu, giữ bả vai áp sát lồng ngực. Yếu cơ này dễ gây xương bả vai nhô ra và đau vai khi đẩy." },
+  traps:     { name: "Cơ thang", short: "Cơ thang", latin: "Trapezius", rest: 48,
+    fn: "Nhún vai, kéo và giữ xương bả vai ổn định. Tạo độ dày cho vùng cổ và lưng trên." },
+  lats:      { name: "Cơ xô", short: "Xô", latin: "Latissimus dorsi", rest: 72,
+    fn: "Kéo cánh tay xuống và ra sau. Đây là cơ tạo dáng lưng chữ V." },
+  lowerback: { name: "Lưng dưới", short: "Lưng dưới", latin: "Erector spinae", rest: 72,
+    fn: "Duỗi và giữ thẳng cột sống. Gánh tải lớn trong deadlift và squat." },
+  glutes:    { name: "Mông", short: "Mông", latin: "Gluteus maximus", rest: 72,
+    fn: "Duỗi và xoay ngoài khớp háng. Cơ lớn và khỏe nhất cơ thể." },
+  quads:     { name: "Đùi trước", short: "Đùi trước", latin: "Quadriceps femoris", rest: 72,
+    fn: "Duỗi gối. Gồm bốn đầu cơ, chịu tải chính trong squat và leg press." },
+  hamstrings:{ name: "Đùi sau", short: "Đùi sau", latin: "Biceps femoris · semitendinosus", rest: 72,
+    fn: "Gập gối và duỗi háng. Hay bị căng cơ nếu chỉ tập đùi trước." },
+  calves:    { name: "Bắp chân", short: "Bắp chân", latin: "Gastrocnemius & soleus", rest: 48,
+    fn: "Duỗi cổ chân (kiễng gót). Chịu tải mỗi bước chạy, nhảy." },
+};
+const ORDER = ["chest","shoulders","biceps","triceps","forearms","abs","obliques","serratus","traps","lats","lowerback","glutes","quads","hamstrings","calves"];
+
+/* ---------- Exercise library (hypertrophy defaults) ---------- */
+// day: PPL day the exercise belongs to ("core" fits any day). p / s: primary and secondary muscle
+// groups. rest: seconds between sets. reps: target range. sets: default working sets.
+// inc: suggested load jump in kg. bw: bodyweight exercise, so kg means added load.
+const EXERCISES = [
+  // Push
+  { id: "bench", name: "Bench press", yt: "Bench press Jeff Nippard", vi: "Đẩy ngực thanh đòn, ghế phẳng", day: "push", p: ["chest"], s: ["triceps", "shoulders"], rest: 150, reps: [6, 10], sets: 4, inc: 2.5, cue: "Siết hai bả vai ra sau, chân bám sàn, hạ thanh chạm ngực dưới rồi đẩy lên." },
+  { id: "incline_db", name: "Incline dumbbell press", vi: "Đẩy ngực tạ đơn, ghế dốc 30°", day: "push", p: ["chest"], s: ["shoulders", "triceps"], rest: 120, reps: [8, 12], sets: 3, inc: 2, cue: "Ghế dốc khoảng 30°, khuỷu tay mở chừng 45° so với thân." },
+  { id: "incline_bb", name: "Incline bench press", vi: "Đẩy ngực thanh đòn, ghế dốc", day: "push", p: ["chest"], s: ["shoulders", "triceps"], rest: 150, reps: [6, 10], sets: 3, inc: 2.5, cue: "Hạ thanh xuống ngực trên, giữ bả vai siết suốt hiệp." },
+  { id: "db_bench", name: "Dumbbell bench press", vi: "Đẩy ngực tạ đơn, ghế phẳng", day: "push", p: ["chest"], s: ["triceps", "shoulders"], rest: 120, reps: [8, 12], sets: 3, inc: 2, cue: "Hạ tạ sâu tới khi ngực căng, đẩy lên theo đường hơi chụm vào." },
+  { id: "chest_press", name: "Machine chest press", vi: "Đẩy ngực máy", day: "push", p: ["chest"], s: ["triceps", "shoulders"], rest: 90, reps: [10, 15], sets: 3, inc: 5, cue: "Chỉnh ghế để tay cầm ngang giữa ngực." },
+  { id: "dips", name: "Dips", vi: "Xà kép", day: "push", p: ["chest", "triceps"], s: ["shoulders"], rest: 120, reps: [6, 12], sets: 3, inc: 2.5, bw: true, cue: "Nghiêng người về trước để vào ngực nhiều hơn; xuống tới khi vai ngang khuỷu." },
+  { id: "pushup", name: "Push-up", vi: "Chống đẩy", day: "push", p: ["chest"], s: ["triceps", "shoulders", "abs", "serratus"], rest: 90, reps: [10, 20], sets: 3, inc: 2.5, bw: true, cue: "Thân thẳng một đường từ đầu tới gót, ngực gần chạm sàn." },
+  { id: "cable_fly", name: "Cable fly", vi: "Ép ngực cáp", day: "push", p: ["chest"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 2.5, cue: "Khuỷu hơi cong cố định, khép tay theo vòng cung trước ngực." },
+  { id: "pec_deck", name: "Pec deck", vi: "Ép ngực máy", day: "push", p: ["chest"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 5, cue: "Giữ ngực ưỡn, dừng 1 giây khi hai tay khép." },
+  { id: "ohp", name: "Overhead press", yt: "Overhead press Jeff Nippard", vi: "Đẩy vai thanh đòn, đứng", day: "push", p: ["shoulders"], s: ["triceps", "traps", "serratus"], rest: 150, reps: [6, 10], sets: 3, inc: 2.5, cue: "Siết mông và bụng, đẩy thanh thẳng lên, đưa đầu ra trước khi thanh qua trán." },
+  { id: "db_ohp", name: "Seated dumbbell shoulder press", vi: "Đẩy vai tạ đơn, ngồi", day: "push", p: ["shoulders"], s: ["triceps", "serratus"], rest: 120, reps: [8, 12], sets: 3, inc: 2, cue: "Lưng tựa ghế, hạ tạ tới ngang tai." },
+  { id: "lateral", name: "Lateral raise", vi: "Dang tạ đơn sang ngang", day: "push", p: ["shoulders"], s: ["traps"], rest: 60, reps: [12, 20], sets: 4, inc: 1, cue: "Dẫn bằng khuỷu, nâng tới ngang vai, không vung người." },
+  { id: "cable_lateral", name: "Cable lateral raise", vi: "Dang vai một tay với cáp", day: "push", p: ["shoulders"], s: [], rest: 60, reps: [12, 20], sets: 3, inc: 2.5, cue: "Ròng rọc đặt thấp, kéo chéo qua thân để cơ căng ngay từ đầu động tác." },
+  { id: "pushdown", name: "Triceps pushdown", vi: "Kéo cáp xuống, tay sau", day: "push", p: ["triceps"], s: [], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Khuỷu áp sát thân, chỉ cẳng tay chuyển động." },
+  { id: "oh_ext", name: "Overhead triceps extension", vi: "Duỗi tay sau qua đầu (cáp hoặc tạ)", day: "push", p: ["triceps"], s: [], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Hạ sâu sau đầu để kéo giãn đầu dài cơ tam đầu." },
+  { id: "skull", name: "Skull crusher", vi: "Nằm duỗi tay sau với thanh EZ", day: "push", p: ["triceps"], s: [], rest: 90, reps: [8, 12], sets: 3, inc: 2.5, cue: "Hạ thanh ra sau đỉnh đầu, khuỷu hướng lên trần." },
+  { id: "cgbp", name: "Close-grip bench press", vi: "Đẩy ngực tay hẹp", day: "push", p: ["triceps"], s: ["chest", "shoulders"], rest: 120, reps: [6, 10], sets: 3, inc: 2.5, cue: "Tay rộng bằng vai, khuỷu khép sát thân khi hạ." },
+  // Pull
+  { id: "pullup", name: "Pull-up", yt: "Pull-up Jeff Nippard", vi: "Kéo xà, tay úp", day: "pull", p: ["lats"], s: ["biceps", "traps", "forearms"], rest: 150, reps: [6, 10], sets: 4, inc: 2.5, bw: true, cue: "Kéo khuỷu xuống hông, ngực hướng lên xà, hạ hết tay." },
+  { id: "chinup", name: "Chin-up", vi: "Kéo xà, tay ngửa", day: "pull", p: ["lats", "biceps"], s: ["forearms"], rest: 150, reps: [6, 10], sets: 3, inc: 2.5, bw: true, cue: "Tay rộng bằng vai, cằm qua xà, hạ có kiểm soát." },
+  { id: "pulldown", name: "Lat pulldown", vi: "Kéo cáp xuống, cơ xô", day: "pull", p: ["lats"], s: ["biceps", "traps"], rest: 90, reps: [8, 12], sets: 3, inc: 5, cue: "Ngả người không quá 15°, kéo thanh về ngực trên." },
+  { id: "bb_row", name: "Barbell row", yt: "Barbell row Jeff Nippard", vi: "Gập người kéo thanh đòn", day: "pull", p: ["lats", "traps"], s: ["biceps", "lowerback", "shoulders"], rest: 150, reps: [6, 10], sets: 4, inc: 2.5, cue: "Lưng thẳng, thân nghiêng khoảng 45°, kéo thanh về rốn." },
+  { id: "db_row", name: "One-arm dumbbell row", vi: "Kéo tạ đơn một tay", day: "pull", p: ["lats"], s: ["traps", "biceps"], rest: 90, reps: [8, 12], sets: 3, inc: 2, cue: "Kéo tạ về hông theo vòng cung, không xoay thân." },
+  { id: "cable_row", name: "Seated cable row", vi: "Ngồi kéo cáp", day: "pull", p: ["lats", "traps"], s: ["biceps"], rest: 90, reps: [10, 12], sets: 3, inc: 5, cue: "Ngực ưỡn, kéo tay cầm về bụng, siết bả vai 1 giây." },
+  { id: "tbar", name: "Chest-supported row", vi: "Kéo tạ tì ngực", day: "pull", p: ["traps", "lats"], s: ["biceps", "shoulders"], rest: 120, reps: [8, 12], sets: 3, inc: 2.5, cue: "Ngực tì đệm, kéo khuỷu ra sau, không nhổm người." },
+  { id: "straight_pd", name: "Straight-arm pulldown", vi: "Kéo cáp tay thẳng", day: "pull", p: ["lats"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 2.5, cue: "Tay gần thẳng, kéo thanh theo vòng cung về đùi." },
+  { id: "face_pull", name: "Face pull", vi: "Kéo dây về mặt", day: "pull", p: ["shoulders", "traps"], s: [], rest: 60, reps: [12, 20], sets: 3, inc: 2.5, cue: "Kéo dây về trán, tách hai tay, xoay ngoài vai." },
+  { id: "rear_fly", name: "Rear delt fly", vi: "Dang tạ vai sau", day: "pull", p: ["shoulders"], s: ["traps"], rest: 60, reps: [12, 20], sets: 3, inc: 1, cue: "Cúi người, dang tay sang ngang bằng vai sau, không kéo bả vai." },
+  { id: "shrug", name: "Shrug", vi: "Nhún vai", day: "pull", p: ["traps"], s: ["forearms"], rest: 60, reps: [10, 15], sets: 3, inc: 5, cue: "Nhún thẳng lên tai, dừng 1 giây, không xoay vai." },
+  { id: "bb_curl", name: "Barbell curl", vi: "Cuốn tạ thanh đòn", day: "pull", p: ["biceps"], s: ["forearms"], rest: 60, reps: [8, 12], sets: 3, inc: 2.5, cue: "Khuỷu cố định cạnh thân, không vung lưng." },
+  { id: "incline_curl", name: "Incline dumbbell curl", vi: "Cuốn tạ đơn, ghế dốc", day: "pull", p: ["biceps"], s: [], rest: 60, reps: [10, 12], sets: 3, inc: 1, cue: "Tay buông sau thân để kéo giãn tay trước ở đáy." },
+  { id: "hammer", name: "Hammer curl", vi: "Cuốn búa", day: "pull", p: ["biceps", "forearms"], s: [], rest: 60, reps: [10, 15], sets: 3, inc: 2, cue: "Lòng bàn tay hướng vào nhau suốt động tác." },
+  { id: "preacher", name: "Preacher curl", vi: "Cuốn tạ trên ghế tì", day: "pull", p: ["biceps"], s: [], rest: 60, reps: [10, 12], sets: 3, inc: 2.5, cue: "Hạ gần thẳng tay, không bật lên ở đáy." },
+  { id: "wrist_curl", name: "Wrist curl", vi: "Cuốn cổ tay", day: "pull", p: ["forearms"], s: [], rest: 45, reps: [12, 20], sets: 2, inc: 1, cue: "Cẳng tay tì ghế, chỉ cổ tay chuyển động." },
+  { id: "deadlift", name: "Deadlift", yt: "Deadlift Jeff Nippard", vi: "Kéo tạ từ sàn", day: "pull", p: ["lowerback", "glutes", "hamstrings"], s: ["traps", "forearms", "quads"], rest: 180, reps: [4, 8], sets: 3, inc: 5, cue: "Thanh sát ống quyển, lưng giữ thẳng, đẩy sàn ra xa rồi đẩy hông tới." },
+  // Legs
+  { id: "squat", name: "Back squat", yt: "Back squat Jeff Nippard", vi: "Gánh tạ ngồi xổm", day: "legs", p: ["quads", "glutes"], s: ["lowerback", "hamstrings"], rest: 180, reps: [6, 10], sets: 4, inc: 5, cue: "Gối đi theo hướng mũi chân, xuống ít nhất tới khi đùi song song sàn." },
+  { id: "front_squat", name: "Front squat", vi: "Squat tạ trước ngực", day: "legs", p: ["quads"], s: ["glutes", "abs"], rest: 180, reps: [6, 10], sets: 3, inc: 2.5, cue: "Khuỷu nâng cao, thân thẳng đứng hơn back squat." },
+  { id: "hack_squat", name: "Hack squat", vi: "Squat máy hack", day: "legs", p: ["quads"], s: ["glutes"], rest: 120, reps: [8, 12], sets: 3, inc: 5, cue: "Đặt chân thấp trên bàn đạp để vào đùi trước nhiều hơn." },
+  { id: "leg_press", name: "Leg press", vi: "Đạp đùi máy", day: "legs", p: ["quads", "glutes"], s: ["hamstrings"], rest: 120, reps: [10, 15], sets: 3, inc: 10, cue: "Lưng dưới áp ghế, không khóa gối ở đỉnh." },
+  { id: "bss", name: "Bulgarian split squat", vi: "Squat một chân, chân sau gác ghế", day: "legs", p: ["quads", "glutes"], s: ["hamstrings"], rest: 90, reps: [8, 12], sets: 3, inc: 2, cue: "Ghi số lần cho mỗi chân. Thân hơi nghiêng trước để vào mông nhiều hơn." },
+  { id: "lunge", name: "Walking lunge", vi: "Chùng chân bước tới", day: "legs", p: ["quads", "glutes"], s: ["hamstrings"], rest: 90, reps: [10, 12], sets: 3, inc: 2, cue: "Ghi số bước mỗi chân. Gối sau gần chạm sàn." },
+  { id: "leg_ext", name: "Leg extension", vi: "Đá đùi máy", day: "legs", p: ["quads"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 5, cue: "Duỗi hết gối, dừng 1 giây ở đỉnh." },
+  { id: "rdl", name: "Romanian deadlift", yt: "Romanian deadlift Jeff Nippard", vi: "Kéo tạ chân thẳng kiểu Romania", day: "legs", p: ["hamstrings", "glutes"], s: ["lowerback", "forearms"], rest: 120, reps: [8, 10], sets: 3, inc: 5, cue: "Đẩy hông ra sau, lưng thẳng, hạ tới khi đùi sau căng." },
+  { id: "leg_curl", name: "Lying leg curl", vi: "Nằm cuốn đùi sau", day: "legs", p: ["hamstrings"], s: ["calves"], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Hông áp đệm, hạ chậm 2–3 giây." },
+  { id: "seated_curl", name: "Seated leg curl", vi: "Ngồi cuốn đùi sau", day: "legs", p: ["hamstrings"], s: [], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Nghiêng người về trước để kéo giãn đùi sau nhiều hơn." },
+  { id: "hip_thrust", name: "Hip thrust", vi: "Đẩy hông với thanh đòn", day: "legs", p: ["glutes"], s: ["hamstrings", "quads"], rest: 90, reps: [8, 12], sets: 3, inc: 5, cue: "Thu cằm, siết mông ở đỉnh 1 giây, ống quyển thẳng đứng." },
+  { id: "back_ext", name: "Back extension", vi: "Gập duỗi lưng trên ghế 45°", day: "legs", p: ["lowerback", "glutes"], s: ["hamstrings"], rest: 60, reps: [12, 15], sets: 2, inc: 2.5, bw: true, cue: "Gập ở hông, không ưỡn quá ở đỉnh." },
+  { id: "calf_stand", name: "Standing calf raise", vi: "Kiễng gót đứng", day: "legs", p: ["calves"], s: [], rest: 60, reps: [10, 15], sets: 4, inc: 5, cue: "Dừng 1 giây ở đáy để bỏ lực đàn hồi, kiễng hết cỡ." },
+  { id: "calf_seated", name: "Seated calf raise", vi: "Kiễng gót ngồi", day: "legs", p: ["calves"], s: [], rest: 60, reps: [15, 20], sets: 3, inc: 5, cue: "Tập trung vào cơ dép, biên độ hết cỡ." },
+  // Core (any day)
+  { id: "hlr", name: "Hanging leg raise", vi: "Treo xà nâng chân", day: "core", p: ["abs"], s: ["obliques", "forearms"], rest: 60, reps: [8, 15], sets: 3, inc: 2.5, bw: true, cue: "Cuộn khung chậu lên, không đung đưa." },
+  { id: "cable_crunch", name: "Cable crunch", vi: "Gập bụng với cáp", day: "core", p: ["abs"], s: [], rest: 60, reps: [10, 15], sets: 3, inc: 5, cue: "Hông cố định, cuộn cột sống xuống." },
+  { id: "ab_wheel", name: "Ab wheel rollout", vi: "Lăn bánh xe bụng", day: "core", p: ["abs"], s: ["obliques", "lats"], rest: 60, reps: [8, 12], sets: 3, inc: 2.5, bw: true, cue: "Siết mông và bụng, không võng lưng." },
+  { id: "pallof", name: "Pallof press", vi: "Đẩy cáp chống xoay", day: "core", p: ["obliques"], s: ["abs"], rest: 45, reps: [10, 12], sets: 3, inc: 2.5, cue: "Ghi số lần mỗi bên; giữ thân không xoay theo cáp." },
+  // Calisthenics (bodyweight; kg = added load). hold: the reps field counts seconds.
+  // noImg: no public-domain photo exists for it.
+  { id: "decline_pushup", name: "Decline push-up", vi: "Chống đẩy chân kê cao", day: "push", p: ["chest"], s: ["shoulders", "triceps", "serratus"], rest: 90, reps: [8, 15], sets: 3, inc: 2.5, bw: true, cue: "Chân kê cao trên ghế, thân thẳng; kê càng cao càng vào ngực trên và vai." },
+  { id: "diamond_pushup", name: "Diamond push-up", vi: "Chống đẩy tay kim cương", day: "push", p: ["triceps"], s: ["chest", "shoulders"], rest: 90, reps: [8, 15], sets: 3, inc: 2.5, bw: true, cue: "Hai tay chụm thành hình thoi dưới ngực, khuỷu khép sát thân." },
+  { id: "pike_pushup", name: "Pike push-up", vi: "Chống đẩy chữ V, bài nền cho trồng chuối", day: "push", p: ["shoulders"], s: ["triceps", "serratus", "traps"], rest: 90, reps: [6, 12], sets: 3, inc: 2.5, bw: true, noImg: true, cue: "Nâng hông cao thành chữ V, hạ đỉnh đầu xuống trước hai tay rồi đẩy thẳng lên." },
+  { id: "hspu", name: "Handstand push-up", vi: "Chống đẩy trồng chuối dựa tường", day: "push", p: ["shoulders"], s: ["triceps", "traps", "serratus"], rest: 150, reps: [3, 8], sets: 3, inc: 2.5, bw: true, cue: "Dựa lưng vào tường, siết bụng và mông, hạ đầu chạm nhẹ sàn rồi đẩy lên." },
+  { id: "bench_dips", name: "Bench dips", vi: "Chống ghế sau lưng", day: "push", p: ["triceps"], s: ["chest", "shoulders"], rest: 60, reps: [10, 20], sets: 3, inc: 2.5, bw: true, cue: "Lưng sát mép ghế, hạ tới khi khuỷu vuông góc; đừng hạ quá sâu nếu đau vai." },
+  { id: "ring_dips", name: "Ring dips", vi: "Xà kép trên vòng treo", day: "push", p: ["chest", "triceps"], s: ["shoulders", "serratus"], rest: 120, reps: [5, 10], sets: 3, inc: 2.5, bw: true, cue: "Giữ vòng sát thân, xoay ngoài cổ tay ở đỉnh; khó hơn xà kép vì phải tự giữ thăng bằng." },
+  { id: "inverted_row", name: "Inverted row", vi: "Kéo xà thấp (Australian pull-up)", day: "pull", p: ["lats", "traps"], s: ["biceps", "shoulders"], rest: 90, reps: [8, 15], sets: 3, inc: 2.5, bw: true, cue: "Thân thẳng như tấm ván, kéo ngực chạm xà; đặt chân càng xa càng khó." },
+  { id: "scap_pullup", name: "Scapular pull-up", vi: "Treo xà kéo bả vai", day: "pull", p: ["traps"], s: ["lats"], rest: 60, reps: [8, 12], sets: 2, inc: 2.5, bw: true, cue: "Tay thẳng, chỉ kéo hai bả vai xuống và ra sau để người nhích lên vài cm." },
+  { id: "muscle_up", name: "Muscle-up", vi: "Kéo xà vượt lên (xà đơn hoặc vòng)", day: "pull", p: ["lats"], s: ["triceps", "chest", "biceps", "shoulders"], rest: 180, reps: [2, 6], sets: 3, inc: 2.5, bw: true, cue: "Kéo mạnh và nhanh về hông, chuyển cổ tay qua xà rồi chống thẳng tay như dips." },
+  { id: "pistol", name: "Pistol squat", vi: "Squat một chân", day: "legs", p: ["quads", "glutes"], s: ["hamstrings", "abs"], rest: 90, reps: [3, 8], sets: 3, inc: 2, bw: true, cue: "Ghi số lần mỗi chân. Chân kia duỗi thẳng ra trước; bám tay vào cột nếu chưa vững." },
+  { id: "nordic", name: "Nordic curl", vi: "Quỳ ngả người, tập đùi sau", day: "legs", p: ["hamstrings"], s: ["glutes"], rest: 120, reps: [3, 8], sets: 3, inc: 2.5, bw: true, cue: "Cố định gót chân, hạ người thật chậm bằng đùi sau, chống tay đỡ ở cuối rồi đẩy lên." },
+  { id: "sl_bridge", name: "Single-leg glute bridge", vi: "Nâng hông một chân", day: "legs", p: ["glutes"], s: ["hamstrings"], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, bw: true, cue: "Ghi số lần mỗi chân. Đẩy bằng gót, siết mông ở đỉnh 1 giây." },
+  { id: "sissy", name: "Sissy squat", vi: "Ngả người squat, tập đùi trước", day: "legs", p: ["quads"], s: [], rest: 60, reps: [8, 15], sets: 3, inc: 2.5, bw: true, cue: "Kiễng gót, đẩy gối ra trước và ngả thân về sau thành một đường thẳng từ gối tới vai." },
+  { id: "jump_squat", name: "Jump squat", vi: "Bật nhảy squat", day: "legs", p: ["quads", "glutes"], s: ["calves"], rest: 90, reps: [8, 12], sets: 3, inc: 2.5, bw: true, cue: "Ngồi xuống ngang song song rồi bật lên hết cỡ, tiếp đất mềm bằng nửa trước bàn chân." },
+  { id: "toes_to_bar", name: "Toes-to-bar", vi: "Treo xà đưa mũi chân chạm xà", day: "core", p: ["abs"], s: ["obliques", "lats", "forearms"], rest: 90, reps: [5, 12], sets: 3, inc: 2.5, bw: true, cue: "Cuộn khung chậu, đưa mũi chân chạm xà, hạ có kiểm soát, không đung đưa." },
+  { id: "knee_raise", name: "Knee raise", vi: "Co gối trên ghế chống tay hoặc treo xà", day: "core", p: ["abs"], s: ["obliques"], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, bw: true, cue: "Co gối lên ngực và cuộn hông; bài nhẹ hơn trước khi lên Hanging leg raise." },
+  { id: "plank", name: "Plank", vi: "Plank cẳng tay, tính giây", day: "core", p: ["abs"], s: ["obliques", "shoulders"], rest: 60, reps: [30, 60], sets: 3, inc: 5, bw: true, hold: true, cue: "Thân thẳng từ đầu tới gót, siết mông và bụng; ghi số giây giữ được." },
+  { id: "side_plank", name: "Side plank", vi: "Plank nghiêng, tính giây mỗi bên", day: "core", p: ["obliques"], s: ["abs", "glutes"], rest: 45, reps: [20, 45], sets: 2, inc: 2.5, bw: true, hold: true, noImg: true, cue: "Khuỷu ngay dưới vai, hông nâng cao thẳng hàng; ghi số giây mỗi bên." },
+  { id: "l_sit", name: "L-sit", vi: "Chống tay giữ chân chữ L, tính giây", day: "core", p: ["abs"], s: ["triceps", "quads", "serratus"], rest: 90, reps: [10, 30], sets: 3, inc: 2.5, bw: true, hold: true, noImg: true, cue: "Chống tay thẳng, đẩy vai xuống, giữ chân duỗi song song sàn; co gối nếu chưa đủ sức." },
+  // Serratus anterior
+  { id: "scap_pushup", name: "Scapular push-up", vi: "Chống đẩy bả vai (push-up plus)", day: "push", p: ["serratus"], s: ["chest"], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, bw: true, noImg: true, cue: "Tay luôn thẳng: để hai bả vai khép vào rồi đẩy sàn ra xa cho lưng trên gồ lên." },
+  { id: "serratus_press", name: "Incline serratus press", vi: "Nằm ghế dốc đẩy bả vai ra trước", day: "push", p: ["serratus"], s: ["shoulders"], rest: 60, reps: [12, 15], sets: 3, inc: 2.5, cue: "Tay giữ thẳng, chỉ đẩy tạ lên vài cm bằng cách đưa bả vai ra trước, hạ chậm." },
+  { id: "wall_slide", name: "Wall slide", vi: "Trượt cẳng tay lên tường", day: "push", p: ["serratus"], s: ["shoulders", "traps"], rest: 45, reps: [10, 15], sets: 2, inc: 2.5, bw: true, noImg: true, cue: "Cẳng tay áp tường, trượt lên cao đồng thời ép tay vào tường; cảm nhận cơ dưới nách." },
+  { id: "landmine_press", name: "Landmine press", vi: "Đẩy thanh đòn một đầu", day: "push", p: ["shoulders", "chest"], s: ["serratus", "triceps"], rest: 90, reps: [8, 12], sets: 3, inc: 2.5, noImg: true, cue: "Đẩy thanh chéo lên phía trước; cuối động tác vươn thêm để bả vai đưa ra trước." },
+  { id: "db_pullover", name: "Dumbbell pullover", vi: "Kéo tạ đơn qua đầu", day: "pull", p: ["lats", "chest"], s: ["serratus", "triceps"], rest: 90, reps: [10, 15], sets: 3, inc: 2, cue: "Nằm ngang ghế, tay gần thẳng, hạ tạ ra sau đầu tới khi căng sườn rồi kéo về." },
+  // Mobility: warm-up drills (counted in reps) and stretches (hold = seconds, per side where noted).
+  // Equipment is only a wall, a door frame, a towel or belt and a stick (broom handle); no bands.
+  // They never count as training for recovery, weekly sets, records or load hints.
+  { id: "arm_circles", name: "Arm circles", vi: "Xoay tay vòng lớn, 10 lần mỗi chiều", day: "mob", mob: "warm", p: ["shoulders"], s: [], rest: 0, reps: [10, 10], sets: 1, inc: 0, bw: true, cue: "Tay duỗi ngang vai, xoay vòng từ nhỏ tới lớn, đổi chiều." },
+  { id: "stick_pass", name: "Stick pass-through", vi: "Đưa gậy qua đầu ra sau lưng", day: "mob", mob: "warm", p: ["shoulders"], s: ["chest"], rest: 0, reps: [8, 10], sets: 1, inc: 0, bw: true, cue: "Cầm gậy (cán chổi) thật rộng, tay thẳng đưa từ trước ra sau lưng rồi về. Cầm hẹp dần qua từng tuần, không gồng qua đau." },
+  { id: "shoulder_cars", name: "Shoulder CARs", vi: "Xoay khớp vai chậm có kiểm soát, mỗi bên", day: "mob", mob: "warm", p: ["shoulders"], s: ["serratus"], rest: 0, reps: [3, 5], sets: 1, inc: 0, bw: true, noImg: true, cue: "Siết nắm tay và bụng, đưa một tay vẽ vòng tròn lớn nhất có thể thật chậm (10 giây mỗi vòng), thân không xoay theo. Chậm rãi xoay trong ở phía sau, xoay ngoài ở phía trên." },
+  { id: "cat_cow", name: "Cat-cow", vi: "Mèo – bò, cong và võng lưng", day: "mob", mob: "warm", p: ["lowerback"], s: ["abs"], rest: 0, reps: [8, 10], sets: 1, inc: 0, bw: true, cue: "Chống tay và gối, hít vào võng lưng ngẩng đầu, thở ra cong lưng cúi đầu, chuyển động từng đốt sống." },
+  { id: "leg_swing", name: "Leg swings", vi: "Đá lăng chân trước – sau, mỗi chân", day: "mob", mob: "warm", p: ["hamstrings"], s: ["glutes", "quads"], rest: 0, reps: [10, 12], sets: 1, inc: 0, bw: true, noImg: true, cue: "Vịn tường, đá chân thả lỏng ra trước rồi ra sau, tăng biên độ dần, lưng thẳng." },
+  { id: "worlds_greatest", name: "World's greatest stretch", vi: "Chùng chân, chống tay, xoay ngực, mỗi bên", day: "mob", mob: "warm", p: ["hamstrings"], s: ["quads", "glutes", "traps"], rest: 0, reps: [4, 5], sets: 1, inc: 0, bw: true, cue: "Bước dài chùng chân, khuỷu hạ xuống cạnh bàn chân trước, xoay ngực mở tay lên trần, rồi duỗi gối trước để giãn đùi sau." },
+  { id: "inchworm", name: "Inchworm", vi: "Gập người bò tay ra plank rồi về", day: "mob", mob: "warm", p: ["hamstrings"], s: ["shoulders", "abs"], rest: 0, reps: [5, 6], sets: 1, inc: 0, bw: true, cue: "Gối chỉ hơi cong, chống tay xuống sàn, bò tay ra plank rồi đi chân về sát tay." },
+  { id: "ham_9090", name: "90/90 hamstring", vi: "Nằm ngửa duỗi gối chủ động, mỗi chân", day: "mob", mob: "warm", p: ["hamstrings"], s: [], rest: 0, reps: [8, 10], sets: 1, inc: 0, bw: true, cue: "Nằm ngửa, ôm đùi để hông và gối vuông góc, duỗi gối lên trần tới khi căng, giữ 2 giây rồi co lại." },
+  { id: "cross_body", name: "Cross-body shoulder stretch", vi: "Kéo tay chéo ngang ngực, mỗi bên", day: "mob", mob: "cool", p: ["shoulders"], s: [], rest: 0, reps: [30, 30], sets: 1, inc: 0, bw: true, hold: true, cue: "Kéo cánh tay ngang ngực bằng tay kia, giữ vai hạ thấp, không xoay thân." },
+  { id: "chest_stick", name: "Stick chest stretch", vi: "Giãn ngực và vai trước với gậy", day: "mob", mob: "cool", p: ["chest"], s: ["shoulders"], rest: 0, reps: [30, 30], sets: 1, inc: 0, bw: true, hold: true, cue: "Cầm gậy rộng, tay thẳng đưa lên qua đầu rồi ra sau tới khi căng ngực; có thể giãn ở khung cửa thay gậy." },
+  { id: "overhead_tri", name: "Overhead triceps stretch", vi: "Giãn tay sau qua đầu, mỗi bên", day: "mob", mob: "cool", p: ["triceps"], s: ["lats"], rest: 0, reps: [30, 30], sets: 1, inc: 0, bw: true, hold: true, cue: "Đưa tay ra sau đầu, tay kia kéo nhẹ khuỷu; nghiêng thân nhẹ để giãn thêm cơ xô." },
+  { id: "child_pose", name: "Child's pose", vi: "Tư thế em bé vươn tay", day: "mob", mob: "cool", p: ["lats"], s: ["lowerback", "shoulders"], rest: 0, reps: [45, 45], sets: 1, inc: 0, bw: true, hold: true, cue: "Ngồi về gót, tay vươn dài trên sàn, thả lỏng ngực xuống; đưa hai tay sang một bên để giãn cơ xô bên kia." },
+  { id: "sleeper", name: "Sleeper stretch", vi: "Nằm nghiêng giãn xoay trong vai, mỗi bên", day: "mob", mob: "cool", p: ["shoulders"], s: [], rest: 0, reps: [30, 45], sets: 2, inc: 0, bw: true, hold: true, noImg: true, cue: "Nằm nghiêng lên vai cần giãn, cánh tay vuông góc thân, khuỷu gập 90°. Tay kia ấn nhẹ cẳng tay xuống sàn tới khi căng sau vai. Căng nhẹ, không đau nhói." },
+  { id: "er_stick", name: "Stick external rotation stretch", vi: "Giãn xoay ngoài vai với gậy, mỗi bên", day: "mob", mob: "cool", p: ["shoulders"], s: ["chest"], rest: 0, reps: [30, 45], sets: 2, inc: 0, bw: true, hold: true, noImg: true, cue: "Khuỷu áp sát sườn gập 90°, tay cầm đầu gậy; tay kia dùng gậy đẩy cẳng tay xoay ra ngoài tới khi căng trước vai. Có thể làm ở khung cửa: cẳng tay tì khung, xoay người đi." },
+  { id: "supine_ham", name: "Supine hamstring stretch", vi: "Nằm ngửa giãn đùi sau với khăn hoặc thắt lưng, mỗi chân", day: "mob", mob: "cool", p: ["hamstrings"], s: ["calves"], rest: 0, reps: [45, 60], sets: 2, inc: 0, bw: true, hold: true, cue: "Vòng khăn hoặc thắt lưng qua lòng bàn chân, gối thẳng, kéo chân lên tới khi căng. Lưng dưới áp sàn, thở chậm, mỗi hơi thở ra hạ thêm một chút." },
+  { id: "seated_ham", name: "Seated hamstring stretch", vi: "Ngồi gập người với một chân, mỗi bên", day: "mob", mob: "cool", p: ["hamstrings"], s: ["lowerback"], rest: 0, reps: [45, 45], sets: 1, inc: 0, bw: true, hold: true, cue: "Một chân duỗi, chân kia gập; gập từ hông với lưng thẳng, không cúi lưng để với cho xa." },
+  { id: "hip_flexor", name: "Kneeling hip flexor stretch", vi: "Quỳ một gối giãn gập hông, mỗi bên", day: "mob", mob: "cool", p: ["quads"], s: ["abs"], rest: 0, reps: [45, 45], sets: 1, inc: 0, bw: true, hold: true, cue: "Quỳ một gối, siết mông bên quỳ và đẩy hông nhẹ ra trước; giơ tay cùng bên lên để giãn thêm." },
+  { id: "pigeon", name: "Figure-4 glute stretch", vi: "Nằm ngửa bắt chéo chân số 4, mỗi bên", day: "mob", mob: "cool", p: ["glutes"], s: ["lowerback"], rest: 0, reps: [45, 45], sets: 1, inc: 0, bw: true, hold: true, noImg: true, cue: "Nằm ngửa, gác mắt cá lên gối chân kia, ôm đùi dưới kéo về ngực tới khi căng mông." },
+  { id: "calf_wall", name: "Wall calf stretch", vi: "Tựa tường giãn bắp chân, mỗi bên", day: "mob", mob: "cool", p: ["calves"], s: [], rest: 0, reps: [30, 30], sets: 1, inc: 0, bw: true, hold: true, cue: "Chân sau thẳng, gót bám sàn, nghiêng người vào tường; gập nhẹ gối sau để giãn cơ dép." },
+];
+const EX = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
+// Default Push / Pull / Legs days. After the first session of a type, the next one starts from
+// whatever you actually did last time.
+const DAYS = {
+  push: { name: "Push", vi: "Ngực · Vai · Tay sau", plan: ["bench", "incline_db", "db_ohp", "lateral", "pushdown", "oh_ext"] },
+  pull: { name: "Pull", vi: "Xô · Lưng trên · Tay trước", plan: ["pullup", "bb_row", "cable_row", "face_pull", "bb_curl", "hammer"] },
+  legs: { name: "Legs", vi: "Đùi · Mông · Bắp chân", plan: ["squat", "rdl", "leg_press", "leg_curl", "calf_stand", "hlr"] },
+  free: { name: "Tự do", vi: "Tự chọn bài", plan: [] },
+};
+const CYCLE = ["push", "pull", "legs"];
+// Warm-up before and stretches after each day. MOB_FOCUS targets the user's own limits (can't touch
+// the toes; stiff shoulder rotation) and closes every session, because flexibility improves with how
+// often it is stretched more than with how long.
+const MOBILITY = {
+  push: { warm: ["arm_circles", "stick_pass", "shoulder_cars"], cool: ["chest_stick", "cross_body", "overhead_tri"] },
+  pull: { warm: ["arm_circles", "cat_cow", "shoulder_cars"], cool: ["child_pose", "cross_body"] },
+  legs: { warm: ["leg_swing", "worlds_greatest", "ham_9090"], cool: ["hip_flexor", "pigeon", "calf_wall"] },
+};
+const MOB_FOCUS = ["supine_ham", "sleeper", "er_stick"];
+
+/* ---------- Training data store ---------- */
+// manualDays: muscle groups ticked by hand on the map ({date: [group]}). sessions: saved workouts.
+// active: the workout in progress. Kept in this browser and, when signed in, in the account:
+// collection data/users/<id> holds doc "log" (manual ticks), doc "active" and one doc per session.
+const LS_OLD = "ban-do-co-bap.log", LS_V2 = "ban-do-co-bap.v2";
+let manualDays = {}, sessions = {}, active = null, activeUpdatedAt = 0;
+// programs: saved plan per day ({push: [{id, n}]}) and the deload week (deloadStart = when it began, lastDeload = same, kept after "Kết thúc sớm").
+let programs = { days: {}, deloadStart: 0, lastDeload: 0, updatedAt: 0 };
+try {
+  const v2 = JSON.parse(localStorage.getItem(LS_V2) || "null");
+  if (v2) { manualDays = v2.manualDays || {}; sessions = v2.sessions || {}; active = v2.active || null; activeUpdatedAt = v2.activeUpdatedAt || 0; if (v2.programs) programs = Object.assign(programs, v2.programs); }
+  else { const old = JSON.parse(localStorage.getItem(LS_OLD) || "null"); if (old && old.days) manualDays = old.days; }
+} catch (e) {}
+let userCol = null;
+const clone = o => JSON.parse(JSON.stringify(o));
+function storeNote(t) { for (const id of ["store-note", "w-store-note"]) { const el = document.getElementById(id); if (el) el.textContent = t; } }
+const storeFail = () => storeNote("Không lưu được lên tài khoản. Dữ liệu vẫn còn trên trình duyệt này; thử lại sau.");
+function persistLocal() { try { localStorage.setItem(LS_V2, JSON.stringify({ manualDays, sessions, active, activeUpdatedAt, programs })); } catch (e) {} }
+
+const pad = n => String(n).padStart(2, "0");
+const dateKey = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const todayKey = () => dateKey(new Date());
+
+// Days a group was trained = ticked by hand, or a primary muscle of an exercise in a saved session.
+let daysCache = null, histCache = null;
+function trainedDays() {
+  if (daysCache) return daysCache;
+  const out = {};
+  for (const k in manualDays) out[k] = new Set(manualDays[k] || []);
+  for (const s of Object.values(sessions)) {
+    const set = out[s.date] || (out[s.date] = new Set());
+    for (const e of s.exercises || []) { const X = EX[e.id]; if (X && !X.mob && e.sets && e.sets.length) X.p.forEach(g => set.add(g)); }
+  }
+  return (daysCache = out);
+}
+function dataChanged() { daysCache = null; histCache = null; }
+function lastTrained(group) {
+  const days = trainedDays();
+  let best = null;
+  for (const k in days) if (days[k].has(group) && (!best || k > best)) best = k;
+  return best;
+}
+function recovery(group) {
+  const k = lastTrained(group);
+  if (!k) return { state: "none", label: "Chưa tập", hours: null };
+  const [y, m, d] = k.split("-").map(Number);
+  const hours = Math.max(0, (Date.now() - new Date(y, m - 1, d, 18).getTime()) / 36e5);
+  const ratio = hours / MUSCLES[group].rest;
+  if (ratio < 0.5) return { state: "hot", label: "Vừa tập", hours };
+  if (ratio < 1) return { state: "warn", label: "Đang hồi phục", hours };
+  return { state: "ok", label: "Sẵn sàng", hours };
+}
+
+/* ---------- Progress (phase 2): estimated 1RM, records, weekly sets ---------- */
+// Epley estimate of the one-rep max; a single rep is the max itself.
+const e1rm = (kg, reps) => !kg || !reps ? 0 : reps === 1 ? kg : kg * (1 + reps / 30);
+const round1 = n => Math.round(n * 10) / 10;
+const keyDate = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+// Saved sets of one exercise, one entry per session, oldest first. Cached until the data changes.
+function exerciseHistory(exId) {
+  if (!histCache) {
+    histCache = {};
+    const byTime = Object.values(sessions).sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+    for (const s of byTime) {
+      const rows = {};
+      for (const e of s.exercises || []) {
+        if (!e.sets || !e.sets.length) continue;
+        let row = rows[e.id];
+        if (!row) {
+          row = rows[e.id] = { id: s.id, date: s.date, t: s.startedAt || keyDate(s.date).getTime(), sets: [] };
+          (histCache[e.id] || (histCache[e.id] = [])).push(row);
+        }
+        row.sets.push(...e.sets.map(x => ({ kg: x.kg || 0, reps: x.reps || 0 })));
+      }
+    }
+  }
+  return histCache[exId] || [];
+}
+// A ticked set is a record when it beats every earlier set of the exercise (saved sessions plus the
+// sets before it in this workout): a higher estimated 1RM, or more reps than ever at this load or
+// heavier. Bodyweight exercises compare reps and added load only. A first-ever session sets none.
+function recordFor(exId, kg, reps, earlier) {
+  const X = EX[exId];
+  if (!X || X.mob || !reps) return null;
+  kg = kg || 0;
+  const prior = earlier.slice();
+  for (const h of exerciseHistory(exId)) prior.push(...h.sets);
+  if (!prior.length) return null;
+  if (!X.bw && kg > 0) {
+    const mine = e1rm(kg, reps);
+    if (mine > Math.max(...prior.map(p => e1rm(p.kg, p.reps))) + 0.05) return "1RM ước tính " + fmtNum(round1(mine)) + " kg";
+  }
+  const load = X.bw ? (kg ? "+" + fmtNum(kg) + " kg" : "không đeo tạ") : fmtNum(kg) + " kg";
+  const heavier = prior.filter(p => p.kg >= kg);
+  if (!heavier.length) return (X.bw ? "tạ đeo nặng nhất " : "mức tạ nặng nhất ") + load;
+  if (reps > Math.max(...heavier.map(p => p.reps))) return reps + " lần ở " + load;
+  return null;
+}
+// Monday–Sunday week that holds day d.
+function weekOf(d) {
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7);
+  return { start, end: new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6) };
+}
+// Sets per muscle group this week: a primary muscle counts the full set, a secondary one half.
+// Ticked sets of the workout in progress count too.
+function weekSets() {
+  const { start, end } = weekOf(new Date()), a = dateKey(start), b = dateKey(end);
+  const out = Object.fromEntries(ORDER.map(g => [g, 0]));
+  const add = (list, tickedOnly) => {
+    for (const e of list || []) {
+      const X = EX[e.id], n = (e.sets || []).filter(s => !tickedOnly || s.done).length;
+      if (!X || X.mob || !n) continue;
+      X.p.forEach(g => { out[g] += n; });
+      X.s.forEach(g => { out[g] += n / 2; });
+    }
+  };
+  for (const s of Object.values(sessions)) if (s.date >= a && s.date <= b) add(s.exercises);
+  if (active) { const k = dateKey(new Date(active.startedAt)); if (k >= a && k <= b) add(active.exercises, true); }
+  return out;
+}
+// Hypertrophy range is 10–20 sets a week per group.
+const volState = v => v <= 0 ? "none" : v < 10 ? "warn" : v <= 20 ? "ok" : "hot";
+
+function saveManual() {
+  const cutoff = dateKey(new Date(Date.now() - 180 * 864e5));
+  for (const k of Object.keys(manualDays)) if (k < cutoff || !(manualDays[k] || []).length) delete manualDays[k];
+  dataChanged(); persistLocal();
+  if (userCol) userCol.doc("log").set({ days: manualDays }).catch(storeFail);
+}
+function saveSession(s) {
+  sessions[s.id] = s; dataChanged(); persistLocal();
+  if (userCol) userCol.doc(s.id).set(clone(Object.assign({ kind: "session" }, s))).catch(storeFail);
+}
+function savePrograms() {
+  programs.updatedAt = Date.now(); persistLocal();
+  if (userCol) userCol.doc("programs").set(clone(programs)).catch(storeFail);
+}
+function removeSession(id) {
+  delete sessions[id]; dataChanged(); persistLocal();
+  if (userCol) userCol.doc(id).delete().catch(storeFail);
+}
+// The workout in progress is saved locally on every change and to the account at most every 0.7 s.
+let activePush = 0;
+function saveActive(immediate) {
+  activeUpdatedAt = Date.now(); persistLocal();
+  clearTimeout(activePush);
+  const push = () => { if (userCol) userCol.doc("active").set({ session: active ? clone(active) : null, updatedAt: activeUpdatedAt }).catch(storeFail); };
+  if (immediate) push(); else activePush = setTimeout(push, 700);
+}
+function editingWorkout() {
+  const a = document.activeElement;
+  return !!(a && a.tagName === "INPUT" && a.closest && a.closest("#w-active"));
+}
+
+/* Backup: only in the installed web app (no claude.ai account there, data lives on the phone) */
+function exportBackup() {
+  const data = { app: "overload", v: 1, at: Date.now(), manualDays, sessions, programs };
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "overload-" + todayKey() + ".json";
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+async function importBackup(file) {
+  let d;
+  try { d = JSON.parse(await file.text()); } catch (e) { toast("File không đọc được. Chọn đúng file overload-….json."); return; }
+  if (!d || d.app !== "overload" || typeof d.sessions !== "object") { toast("Đây không phải file sao lưu của Overload."); return; }
+  const before = Object.keys(sessions).length;
+  sessions = Object.assign({}, d.sessions, sessions);           // merge: sessions on this phone win
+  for (const k in d.manualDays || {}) manualDays[k] = [...new Set([...(manualDays[k] || []), ...d.manualDays[k]])];
+  if (d.programs && (d.programs.updatedAt || 0) > (programs.updatedAt || 0)) programs = Object.assign(programs, d.programs);
+  dataChanged(); persistLocal(); refreshAll(); renderIdle();
+  toast("Đã khôi phục: thêm " + (Object.keys(sessions).length - before) + " buổi tập.");
+}
+function setupBackup() {
+  if (window.claude && window.claude.use) return;
+  document.getElementById("backup").hidden = false;
+  storeNote("Dữ liệu lưu trên điện thoại này. Thỉnh thoảng bấm Sao lưu để giữ một bản dự phòng.");
+  document.getElementById("bk-export").onclick = exportBackup;
+  document.getElementById("bk-file").onchange = e => { const f = e.target.files[0]; if (f) importBackup(f); e.target.value = ""; };
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+}
+
+async function connectStore() {
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    if (!db || !user) return;
+    const id = await user.id();
+    if (!id) return;
+    const col = db.collection("data/users/" + id);
+    let first = true;
+    col.onSnapshot(snap => {
+      let remoteLog = null, remoteActive = null, remotePrograms = null;
+      const remoteSessions = {};
+      for (const d of snap.docs) {
+        const v = d.data() || {};
+        if (d.id === "log") remoteLog = v;
+        else if (d.id === "active") remoteActive = v;
+        else if (d.id === "programs") remotePrograms = v;
+        else if (v.kind === "session") remoteSessions[d.id] = clone(v);
+      }
+      if (first) {
+        userCol = col;
+        // Anything saved only in this browser (before signing in) moves into the account.
+        if (!remoteLog && Object.keys(manualDays).length) col.doc("log").set({ days: manualDays }).catch(storeFail);
+        for (const sid in sessions) if (!remoteSessions[sid]) {
+          remoteSessions[sid] = sessions[sid];
+          col.doc(sid).set(clone(Object.assign({ kind: "session" }, sessions[sid]))).catch(storeFail);
+        }
+      }
+      if (remoteLog && remoteLog.days) manualDays = clone(remoteLog.days);
+      const rpu = (remotePrograms && remotePrograms.updatedAt) || 0;
+      if (first && programs.updatedAt > rpu) col.doc("programs").set(clone(programs)).catch(storeFail);
+      else if (remotePrograms && rpu >= programs.updatedAt) programs = Object.assign({ days: {}, deloadStart: 0, lastDeload: 0, updatedAt: 0 }, clone(remotePrograms));
+      sessions = remoteSessions;
+      const ru = (remoteActive && remoteActive.updatedAt) || 0;
+      let activeChanged = false;
+      if (ru > activeUpdatedAt && (first || !editingWorkout())) {
+        active = remoteActive.session ? clone(remoteActive.session) : null;
+        activeUpdatedAt = ru; activeChanged = true;
+      } else if (first && activeUpdatedAt > ru) saveActive(true);
+      first = false;
+      dataChanged(); persistLocal();
+      storeNote("Nhật ký được lưu riêng trong tài khoản của bạn.");
+      refreshAll();
+      if (activeChanged) { renderActive(); tickTimer(); } else renderIdle();
+      if (pg) renderProgress();
+    }, () => { userCol = null; storeFail(); });
+  } catch (e) { userCol = null; }
+}
+
+/* ---------- Three.js scene ---------- */
+const stage = document.getElementById("stage");
+const hint = document.getElementById("hint");
+let hintTimer = 0, hintDefault = "Đang tải mô hình…";
+function flashHint(t) { hint.textContent = t; clearTimeout(hintTimer); hintTimer = setTimeout(() => { hint.textContent = hintDefault; }, 4000); }
+if (!window.THREE) { hint.textContent = "Không tải được thư viện 3D. Kiểm tra kết nối mạng rồi tải lại trang."; }
+
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x000000, 0);
+renderer.outputEncoding = THREE.sRGBEncoding;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
+camera.position.set(0, 1.0, 3.6);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.92, 0);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.minDistance = 0.5;
+controls.maxDistance = 5.5;
+controls.minPolarAngle = 0.25;
+controls.maxPolarAngle = Math.PI - 0.35;
+controls.autoRotateSpeed = 1.6;
+controls.update();
+
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.92;
+// Soft studio reflections give the wet sheen anatomy apps have
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+
+scene.add(new THREE.HemisphereLight(0xf4efea, 0x30343a, 0.18));
+const key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(1.6, 2.6, 2.4); scene.add(key);
+const rim = new THREE.DirectionalLight(0xcfdcff, 0.75); rim.position.set(-2, 1.8, -2.6); scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffe2d6, 0.15); fill.position.set(-1.8, 0.6, 1.8); scene.add(fill);
+
+// Fiber maps, generated once: rounded fascicles (bundles) separated by grooves, fine fibers
+// inside each bundle and a slight wave along the length. The model's UVs run along each
+// muscle's long axis, so the columns of this texture follow the muscle.
+function fiberMaps() {
+  const W = 1024, H = 256, hgt = new Float32Array(W * H);
+  const rnd = Math.random;
+  const fascicles = [];
+  for (let x = 0; x < W;) {
+    let w = 34 + rnd() * 42;
+    if (W - x - w < 30) w = W - x;
+    const fibers = [];
+    for (let f = 0; f < w;) { const fw = 3 + rnd() * 4; fibers.push([f, fw, 0.55 + rnd() * 0.45]); f += fw; }
+    fascicles.push({ x, w, amp: 1 + rnd() * 2.5, k: 1 + Math.floor(rnd() * 2), ph: rnd() * 6.283, fibers });
+    x += w;
+  }
+  for (const F of fascicles) {
+    for (let y = 0; y < H; y++) {
+      const off = F.amp * Math.sin(6.2832 * F.k * y / H + F.ph);
+      for (let i = 0; i < F.w; i++) {
+        const x = Math.floor(F.x + i);
+        const local = (i - off) / F.w;
+        const prof = local <= 0 || local >= 1 ? 0 : Math.pow(Math.sin(Math.PI * local), 0.45);
+        const lp = ((i - off) % F.w + F.w) % F.w;
+        let fib = 0.5;
+        for (const [f0, fw, hv] of F.fibers) if (lp >= f0 && lp < f0 + fw) { fib = hv * Math.pow(Math.sin(Math.PI * (lp - f0) / fw), 0.6); break; }
+        hgt[y * W + x] = prof * (0.72 + 0.28 * fib) + (rnd() - 0.5) * 0.02;
+      }
+    }
+  }
+  const color = new Uint8Array(W * H * 4), normal = new Uint8Array(W * H * 4), rough = new Uint8Array(W * H * 4);
+  const at = (x, y) => hgt[((y + H) % H) * W + ((x + W) % W)];
+  const strength = 7;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, h = at(x, y);
+    let nx = (at(x - 1, y) - at(x + 1, y)) * strength, ny = (at(x, y - 1) - at(x, y + 1)) * strength;
+    const len = Math.hypot(nx, ny, 1);
+    normal[i] = (nx / len * 0.5 + 0.5) * 255; normal[i + 1] = (ny / len * 0.5 + 0.5) * 255; normal[i + 2] = (1 / len * 0.5 + 0.5) * 255; normal[i + 3] = 255;
+    const c = (0.55 + 0.45 * h) * 255; color[i] = color[i + 1] = color[i + 2] = c; color[i + 3] = 255;
+    const r = (0.78 - 0.36 * h) * 255; rough[i] = rough[i + 1] = rough[i + 2] = r; rough[i + 3] = 255;
+  }
+  const make = (data, srgb) => {
+    const t = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    if (srgb) t.encoding = THREE.sRGBEncoding;
+    t.needsUpdate = true;
+    return t;
+  };
+  return { color: make(color, true), normal: make(normal, false), rough: make(rough, false) };
+}
+const FIB = fiberMaps();
+
+const ANAT = new THREE.Color(0x8c1620);
+const OTHER = new THREE.Color(0x72222a);
+const REC = { hot: new THREE.Color(0xdc4a39), warn: new THREE.Color(0xe2a436), ok: new THREE.Color(0x3fa96c), none: new THREE.Color(0x9b9497) };
+// Vertex color COLOR_0 is baked data from Blender: R = ambient occlusion, G = tendon weight.
+// uFocus (per material): 1 = lit (selected), 0 = normal, below 0 = dimmed toward grey, so a
+// selected muscle reads clearly against the rest instead of only by a faint rim.
+function bakedShading(shader) {
+  shader.fragmentShader = shader.fragmentShader
+    .replace("#include <common>", "#include <common>\nuniform float uFocus;")
+    .replace("#include <color_fragment>", `
+      float bakedAO = pow(vColor.r, 0.7);
+      float tendon = vColor.g;
+      // tendons: pearly off-white with a cool tint, never pure white
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.66, 0.64, 0.64), tendon * 0.7);
+      diffuseColor.rgb *= mix(0.32, 1.0, bakedAO);
+      if (uFocus < 0.0) {
+        float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(lum), 0.75 * -uFocus) * (1.0 - 0.5 * -uFocus);
+      } else if (uFocus > 0.0) {
+        vec3 lit = min(diffuseColor.rgb * vec3(2.3, 1.15, 1.0) + vec3(0.1, 0.012, 0.0), vec3(1.0));
+        diffuseColor.rgb = mix(diffuseColor.rgb, lit, uFocus);
+      }`)
+    .replace("#include <roughnessmap_fragment>", `#include <roughnessmap_fragment>
+      roughnessFactor = mix(roughnessFactor, 0.35, tendon);`)
+    // selection/hover glow lives on the rim (fresnel) so the fibers stay visible
+    .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+      float rimF = pow(1.0 - clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0), 2.2);
+      totalEmissiveRadiance *= 0.1 + 1.9 * rimF;`)
+    .replace("#include <aomap_fragment>", `#include <aomap_fragment>
+      reflectedLight.indirectDiffuse *= bakedAO;
+      reflectedLight.indirectSpecular *= mix(0.35, 1.0, bakedAO);`);
+}
+const muscleMat = color => {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: color.clone(), map: FIB.color, normalMap: FIB.normal, normalScale: new THREE.Vector2(0.85, 0.85),
+    roughness: 1.0, roughnessMap: FIB.rough, metalness: 0.0, clearcoat: 0.22, clearcoatRoughness: 0.38,
+    envMapIntensity: 0.45, vertexColors: true, vertexTangents: true, emissive: new THREE.Color(0xffb27a), emissiveIntensity: 0,
+  });
+  m.userData.uFocus = { value: 0 };
+  // same shader source for every muscle material (one program), but each keeps its own uFocus
+  m.onBeforeCompile = shader => { shader.uniforms.uFocus = m.userData.uFocus; bakedShading(shader); };
+  return m;
+};
+const mats = {};
+for (const g of ORDER) mats[g] = muscleMat(ANAT);
+mats.other = muscleMat(OTHER);
+const BONE_MAT = new THREE.MeshStandardMaterial({ color: 0xb3aa9a, roughness: 0.75, metalness: 0.0 });
+// Fasciae are drawn as a thin translucent film so the muscles stay readable underneath.
+const FASCIA_MAT = new THREE.MeshStandardMaterial({ color: 0xece4da, roughness: 0.35, metalness: 0.0, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide });
+const SHEATH_MAT = new THREE.MeshStandardMaterial({ color: 0xbfd0e4, roughness: 0.3, metalness: 0.0, transparent: true, opacity: 0.8 });
+
+// Optional layers; "core" (the main muscles) is always shown.
+const LAYERS = [
+  { id: "headneck", name: "Cơ đầu & cổ", desc: "Cơ nhai, cơ trên và dưới xương móng.", where: "Phóng to vùng hàm và cổ để thấy.", on: true },
+  { id: "deep", name: "Cơ sâu", desc: "Cơ sát cột sống, sàn chậu, lưỡi, mắt, thanh quản. Phần lớn bị che khuất.", where: "Các cơ này nằm dưới cơ khác nên gần như không thấy từ ngoài.", on: false },
+  { id: "fascia", name: "Màng cơ", desc: "Lớp mạc bọc cơ, vẽ trong suốt. Bấm xuyên qua để chọn cơ bên dưới.", where: "Lớp phim trong suốt phủ lên tay, đùi và lưng.", on: false },
+  { id: "sheath", name: "Bao gân & túi hoạt dịch", desc: "Quanh cổ tay, cổ chân và các khớp.", where: "Phóng to cổ tay, cổ chân để thấy.", on: false },
+];
+const LAYER_KEY = "ban-do-co-bap.layers";
+try { const saved = JSON.parse(localStorage.getItem(LAYER_KEY) || "{}"); for (const L of LAYERS) if (typeof saved[L.id] === "boolean") L.on = saved[L.id]; } catch (e) {}
+const layerMeshes = { core: [], headneck: [], deep: [], fascia: [], sheath: [] };
+function applyLayers() {
+  for (const L of LAYERS) for (const m of layerMeshes[L.id]) m.visible = L.on;
+}
+const body = new THREE.Group(); scene.add(body);
+
+/* ---------- Arm raise ---------- */
+// The arms rotate about the shoulder joint (abduction, sideways and up). Each vertex has a weight:
+// 1 for the free arm, 0 for the trunk, and a ramp across the muscles that bridge the shoulder
+// (pectoralis major, deltoid, latissimus…), so those stretch instead of tearing apart.
+// Pivots come from the head of the humerus, stored by Blender on the "skeleton_arm|L/R" meshes.
+const ARM_X = 0.19;   // same split as ARM_X in build_glb.py
+// Upper-arm muscles whose heads start on the scapula right next to the joint still move with the arm.
+const UPPER_ARM = /biceps brachii|triceps brachii|brachialis|anconeus/i;
+const SHOULDER_SPAN = /pectoralis major|deltoid|latissimus|teres (major|minor)|supraspinatus|infraspinatus|subscapularis|coracobrachialis|axillary/i;
+const posed = [], pivots = {};
+let poseReady = false, armAngle = 0, armTarget = 0;
+const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function setupPose(root) {
+  root.traverse(o => {
+    if (o.isMesh && o.name.startsWith("skeleton_arm") && o.userData.pivot) {
+      const p = o.userData.pivot; pivots[o.name.endsWith("L") ? 1 : -1] = new THREE.Vector3(p[0], p[1], p[2]);
+    }
+  });
+  if (!pivots[1] || !pivots[-1]) return false;
+  root.traverse(o => {
+    if (!o.isMesh || o.name === "skeleton") return;
+    const g = o.geometry, pos = g.getAttribute("position"), n = pos.count;
+    let s, w;
+    if (o.name.startsWith("skeleton_arm")) {
+      s = o.name.endsWith("L") ? 1 : -1; w = new Float32Array(n).fill(1);
+    } else {
+      const side = o.name.split("|")[1];
+      if (side !== "L" && side !== "R") return;
+      s = side === "L" ? 1 : -1;
+      const P = pivots[s], label = o.userData.label || "";
+      if (!g.boundingBox) g.computeBoundingBox();
+      const c = g.boundingBox.getCenter(new THREE.Vector3());
+      if ((c.x * s > ARM_X && c.y < P.y - 0.05) || UPPER_ARM.test(label)) {
+        w = new Float32Array(n).fill(1);
+      } else if (SHOULDER_SPAN.test(label)) {
+        const deltoid = /deltoid/i.test(label);
+        w = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const dx = pos.getX(i) - P.x, dy = pos.getY(i) - P.y, dz = pos.getZ(i) - P.z;
+          const lateral = dx * s;                       // metres outward from the joint centre
+          if (deltoid) { w[i] = smoothstep(-0.09, -0.05, lateral); continue; }
+          // Only the part near the humerus follows the arm; the trunk part of pectoralis,
+          // latissimus and teres stays put, so they stretch toward the arm instead of swinging out.
+          const near = 1 - smoothstep(0.07, 0.17, Math.hypot(dx, dy, dz));
+          w[i] = smoothstep(-0.10, 0.0, lateral) * near;
+        }
+      } else return;
+    }
+    const nor = g.getAttribute("normal"), tan = g.getAttribute("tangent");
+    posed.push({ g, s, w, pos: pos.array.slice(), nor: nor ? nor.array.slice() : null, tan: tan ? tan.array.slice() : null });
+  });
+  return posed.length > 0;
+}
+// Linear blend skinning: each vertex moves part of the way (its weight) from rest to the fully
+// rotated position. Blending angles instead swings partly-weighted vertices along wide arcs,
+// which curls the shoulder muscles into loops at large angles.
+function applyPose(deg) {
+  const base = deg * Math.PI / 180;
+  for (const m of posed) {
+    const P = pivots[m.s], g = m.g, n = m.w.length;
+    const c = Math.cos(base * m.s), sn = Math.sin(base * m.s);
+    const pa = g.attributes.position.array, na = m.nor && g.attributes.normal.array, ta = m.tan && g.attributes.tangent.array;
+    for (let i = 0; i < n; i++) {
+      const w = m.w[i], i3 = i * 3;
+      const x = m.pos[i3] - P.x, y = m.pos[i3 + 1] - P.y;
+      pa[i3] = m.pos[i3] + w * (P.x + x * c - y * sn - m.pos[i3]);
+      pa[i3 + 1] = m.pos[i3 + 1] + w * (P.y + x * sn + y * c - m.pos[i3 + 1]);
+      pa[i3 + 2] = m.pos[i3 + 2];
+      if (na) {
+        const nx = m.nor[i3], ny = m.nor[i3 + 1], nz = m.nor[i3 + 2];
+        const rx = nx + w * (nx * c - ny * sn - nx), ry = ny + w * (nx * sn + ny * c - ny), l = Math.hypot(rx, ry, nz) || 1;
+        na[i3] = rx / l; na[i3 + 1] = ry / l; na[i3 + 2] = nz / l;
+      }
+      if (ta) {
+        const i4 = i * 4, tx = m.tan[i4], ty = m.tan[i4 + 1], tz = m.tan[i4 + 2];
+        const rx = tx + w * (tx * c - ty * sn - tx), ry = ty + w * (tx * sn + ty * c - ty), l = Math.hypot(rx, ry, tz) || 1;
+        ta[i4] = rx / l; ta[i4 + 1] = ry / l; ta[i4 + 2] = tz / l; ta[i4 + 3] = m.tan[i4 + 3];
+      }
+    }
+    g.attributes.position.needsUpdate = true;
+    if (na) g.attributes.normal.needsUpdate = true;
+    if (ta) g.attributes.tangent.needsUpdate = true;
+    g.computeBoundingSphere(); g.computeBoundingBox();   // keeps clicking accurate
+  }
+}
+
+// Z-Anatomy muscles + skeleton, prepared in Blender (scripts/build_glb.py).
+// Mesh names are "group|side|layer|Anatomical name"; materials are "m_<group>", "fascia", "sheath" or "bone".
+// Loaded the first time the map tab opens, so the workout tab works without the 12 MB download.
+let modelRequested = false, mapVisible = false, modelReady = false;
+function loadModel() {
+  if (modelRequested) return;
+  modelRequested = true;
+  hint.textContent = hintDefault;
+  new THREE.GLTFLoader().load("body.json", gltf => {
+    const root = gltf.scene;
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      const mn = (o.material && o.material.name) || "";
+      if (mn === "bone") { o.material = BONE_MAT; return; }
+      const parts = o.name.split("|");
+      const layer = layerMeshes[parts[2]] ? parts[2] : "core";
+      let g = mats[mn.replace(/^m_/, "")] && mn !== "m_other" ? mn.replace(/^m_/, "") : "other";
+      if (g === "other" && /serratus.anterior/i.test(parts[3] || "")) g = "serratus";
+      o.material = mn === "fascia" ? FASCIA_MAT : mn === "sheath" ? SHEATH_MAT : mats[g];
+      // Per-vertex tangents give the fiber normal map a smooth frame; without them three.js
+      // derives one per triangle and the fibers shade in facets.
+      if (mn !== "fascia" && mn !== "sheath" && o.geometry.index && o.geometry.getAttribute("uv") && o.geometry.getAttribute("normal")) {
+        o.geometry.computeTangents();
+      }
+      if (!o.geometry.getAttribute("color")) {
+        const n = o.geometry.getAttribute("position").count, c = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) c[i * 3] = 1;
+        o.geometry.setAttribute("color", new THREE.BufferAttribute(c, 3));
+      }
+      if (mn === "fascia") o.renderOrder = 1;
+      o.userData.group = g;
+      o.userData.layer = layer;
+      o.userData.label = (parts[3] || "").replace(/_/g, " ").replace(/ \d+$/, "");
+      layerMeshes[layer].push(o);
+    });
+    applyLayers();
+    poseReady = setupPose(root);
+    if (!poseReady) document.querySelector(".pose").hidden = true;
+    const box = new THREE.Box3().setFromObject(root);
+    root.position.y -= box.min.y;
+    body.add(root);
+    modelReady = true;
+    hintDefault = "Kéo để xoay · bấm vào cơ để chọn";
+    hint.textContent = hintDefault;
+  }, xhr => {
+    if (xhr.total) hint.textContent = "Đang tải mô hình… " + Math.round(xhr.loaded / xhr.total * 100) + "%";
+  }, () => {
+    hintDefault = "Không tải được mô hình 3D. Tải lại trang để thử lại.";
+    hint.textContent = hintDefault;
+    modelRequested = false;
+  });
+}
+
+// Soft contact shadow under the feet
+(() => {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  grd.addColorStop(0, "rgba(0,0,0,0.32)"); grd.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  p.rotation.x = -Math.PI / 2; p.position.y = 0.002; scene.add(p);
+})();
+
+/* ---------- Interaction ---------- */
+let selected = "chest", hovered = null, mode = "anat";
+let exHL = null;   // {p, s}: an exercise's primary and secondary groups, lit on the model
+let focusOn = false;   // a muscle was picked: light it and dim the rest (tap empty space to clear)
+let celebration = null;  // end-of-session moment: { groups, t0 }, animated in frame()
+const raycaster = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+const tip = document.getElementById("tip");
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  // hidden layers and the see-through fasciae never take the click; a bone in front blocks it
+  const hit = raycaster.intersectObjects(body.children, true).find(h => h.object.visible && h.object.userData.layer !== "fascia");
+  return hit && hit.object.userData.group ? hit.object.userData : null;
+}
+function showTip(ev, hit) {
+  if (!hit) { tip.hidden = true; return; }
+  const r = stage.getBoundingClientRect();
+  const M = MUSCLES[hit.group];
+  const L = LAYERS.find(l => l.id === hit.layer);
+  tip.textContent = (M ? M.name + " · " : L ? L.name + " · " : "") + hit.label
+    + (M && mode === "vol" ? " · " + fmtNum(weekSets()[hit.group]) + " hiệp tuần này" : "");
+  tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - 200) + "px";
+  tip.style.top = (ev.clientY - r.top + 14) + "px";
+  tip.hidden = false;
+}
+let down = null, tipTimer = 0;
+renderer.domElement.addEventListener("pointerdown", e => { down = { x: e.clientX, y: e.clientY }; });
+renderer.domElement.addEventListener("pointerup", e => {
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) {
+    const hit = celebration ? null : pick(e);
+    if (celebration) { /* taps don't change the end-of-session view */ }
+    else if (hit && hit.group !== "other") { select(hit.group); flashHint(MUSCLES[hit.group].name + " · chạm chỗ trống để bỏ chọn"); }
+    else if (!hit && (focusOn || exHL)) { focusOn = false; exHL = null; paint(); }
+    if (e.pointerType !== "mouse") { showTip(e, hit); clearTimeout(tipTimer); tipTimer = setTimeout(() => { tip.hidden = true; }, 2200); }
+  }
+  down = null;
+});
+let moveQueued = false;
+renderer.domElement.addEventListener("pointermove", e => {
+  if (e.pointerType !== "mouse" || e.buttons || moveQueued) { if (e.buttons) tip.hidden = true; return; }
+  moveQueued = true;
+  requestAnimationFrame(() => {
+    moveQueued = false;
+    const hit = pick(e);
+    showTip(e, hit);
+    const g = hit && hit.group !== "other" ? hit.group : null;
+    renderer.domElement.style.cursor = g ? "pointer" : "";
+    if (g !== hovered) { hovered = g; paint(); }
+  });
+});
+renderer.domElement.addEventListener("pointerleave", () => { hovered = null; tip.hidden = true; paint(); });
+
+function paint() {
+  if (celebration) return;   // frame() drives the colors during the end-of-session moment
+  const ws = mode === "vol" ? weekSets() : null;
+  // In anatomy mode the rest goes grey; in recovery/volume modes the colors carry information,
+  // so the rest is only dimmed a little.
+  const dim = mode === "anat" ? -1 : -0.35;
+  const focusing = !!exHL || focusOn;
+  for (const g of ORDER) {
+    const m = mats[g];
+    // weekly volume reuses the recovery colors: grey 0, amber under 10, green 10–20, red over 20
+    m.color.copy(mode === "anat" ? ANAT : REC[ws ? volState(ws[g]) : recovery(g).state]);
+    let f = 0, e = 0;
+    if (exHL) { if (exHL.p.has(g)) { f = 1; e = 0.85; } else if (exHL.s.has(g)) { f = 0.45; e = 0.35; } else f = dim; }
+    else if (focusOn) { if (g === selected) { f = 1; e = 0.8; } else if (g === hovered) { f = 0.3; e = 0.3; } else f = dim; }
+    else if (g === hovered) { f = 0.45; e = 0.4; }
+    m.userData.uFocus.value = f; m.emissiveIntensity = e;
+  }
+  mats.other.color.copy(mode === "anat" ? OTHER : REC.none);
+  mats.other.userData.uFocus.value = focusing ? dim : 0;
+}
+
+const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+let tween = null;
+function viewTo(angle) {
+  const off = camera.position.clone().sub(controls.target);
+  const radius = Math.hypot(off.x, off.z);
+  const from = Math.atan2(off.x, off.z);
+  let to = angle; while (to - from > Math.PI) to -= 2 * Math.PI; while (to - from < -Math.PI) to += 2 * Math.PI;
+  tween = { from, to, radius, y: off.y, t0: performance.now(), dur: reduceMotion ? 1 : 600 };
+}
+const btn = id => document.getElementById(id);
+function setPressed(ids, on) { ids.forEach(i => btn(i).setAttribute("aria-pressed", String(i === on))); }
+btn("v-front").onclick = () => { viewTo(0); setPressed(["v-front", "v-back"], "v-front"); };
+btn("v-back").onclick = () => { viewTo(Math.PI); setPressed(["v-front", "v-back"], "v-back"); };
+btn("v-spin").onclick = () => { controls.autoRotate = !controls.autoRotate; btn("v-spin").setAttribute("aria-pressed", String(controls.autoRotate)); };
+btn("m-anat").onclick = () => setMode("anat");
+btn("m-rec").onclick = () => setMode("rec");
+btn("m-vol").onclick = () => setMode("vol");
+const LEGENDS = {
+  rec: { items: [["hot", "Vừa tập"], ["warn", "Đang hồi"], ["ok", "Sẵn sàng"], ["line", "Chưa tập"]] },
+  vol: { title: "Hiệp tuần này:", items: [["line", "0"], ["warn", "Dưới 10"], ["ok", "10–20"], ["hot", "Trên 20"]] },
+};
+function setMode(m) {
+  mode = m; setPressed(["m-anat", "m-rec", "m-vol"], "m-" + m);
+  const lg = btn("legend"), L = LEGENDS[m];
+  lg.hidden = !L; lg.textContent = "";
+  if (L && L.title) { const t = document.createElement("span"); t.textContent = L.title; lg.appendChild(t); }
+  for (const [c, label] of L ? L.items : []) {
+    const s = document.createElement("span"), i = document.createElement("i");
+    i.style.background = "var(--" + c + ")"; s.append(i, label); lg.appendChild(s);
+  }
+  refreshAll();
+}
+
+// Front-facing muscles turn the camera to the front, back muscles to the back
+const BACK = new Set(["triceps", "traps", "lats", "lowerback", "glutes", "hamstrings", "calves"]);
+// Muscles hidden under the arm: shown from a three-quarter side view with the arms raised.
+const SIDE = new Set(["serratus"]);
+function showGroups(groups) {
+  if (groups.some(g => SIDE.has(g))) {
+    viewTo(0.9); setPressed(["v-front", "v-back"], null);
+    if (poseReady && armTarget < 110) {
+      armTarget = 110; armBtn.setAttribute("aria-pressed", "true"); armBtn.textContent = "Hạ tay";
+    }
+    return;
+  }
+  const back = groups.filter(g => BACK.has(g)).length * 2 > groups.length;
+  viewTo(back ? Math.PI : 0); setPressed(["v-front", "v-back"], back ? "v-back" : "v-front");
+}
+function select(g, turn) {
+  selected = g; exHL = null; focusOn = true;
+  if (turn) showGroups([g]);
+  refreshAll();
+}
+
+/* ---------- Panel rendering ---------- */
+const chipsEl = document.getElementById("chips");
+for (const g of ORDER) {
+  const b = document.createElement("button");
+  b.className = "b b-secondary b-sm b-pill chip"; b.id = "chip-" + g; b.type = "button";
+  b.innerHTML = '<span class="dot"></span><span></span>';
+  b.lastChild.textContent = MUSCLES[g].name;
+  b.onclick = () => select(g, true);
+  chipsEl.appendChild(b);
+}
+
+function fmtHours(h) {
+  if (h < 24) return Math.round(h) + " giờ";
+  return Math.round(h / 24) + " ngày";
+}
+function renderDetail() {
+  const M = MUSCLES[selected], rec = recovery(selected), wk = weekSets()[selected];
+  btn("m-name").textContent = M.name;
+  btn("m-latin").textContent = M.latin;
+  btn("m-fn").textContent = M.fn;
+  const st = btn("m-status");
+  if (mode === "vol") { st.className = "pill " + volState(wk); st.textContent = fmtNum(wk) + " hiệp/tuần"; }
+  else { st.className = "pill " + rec.state; st.textContent = rec.label; }
+  const tb = btn("m-ex"); tb.textContent = "";
+  for (const e of EXERCISES.filter(x => x.p.includes(selected))) {
+    const tr = document.createElement("tr");
+    const a = document.createElement("td");
+    const nb = document.createElement("button"); nb.type = "button"; nb.className = "exname";
+    nb.textContent = e.name;
+    const sm = document.createElement("small"); sm.textContent = e.vi; nb.appendChild(sm);
+    nb.onclick = () => showExerciseOnMap(e.id);
+    a.appendChild(nb);
+    const tools = document.createElement("div"); tools.className = "tools";
+    let demo = null;
+    const ib = mkBtn("b b-ghost b-sm", "Ảnh", () => {
+      if (demo) { demo._stop && demo._stop(); demo.remove(); demo = null; ib.setAttribute("aria-expanded", "false"); return; }
+      demo = demoFrame(e); a.appendChild(demo); ib.setAttribute("aria-expanded", "true");
+    }, "image");
+    ib.setAttribute("aria-expanded", "false");
+    ib.setAttribute("aria-label", "Ảnh minh họa " + e.name);
+    if (e.noImg) tools.append(ytLink(e)); else tools.append(ib, ytLink(e));
+    a.appendChild(tools);
+    const b = document.createElement("td"); b.className = "sr"; b.textContent = e.sets + " × " + e.reps[0] + "–" + e.reps[1];
+    tr.append(a, b);
+    if (active) {
+      const c = document.createElement("td"); c.className = "act";
+      const ab = mkBtn("b b-icon b-secondary b-sm", "", null, "plus");
+      ab.setAttribute("aria-label", "Thêm " + e.name + " vào buổi tập");
+      ab.onclick = () => addExercise(e.id, true);
+      c.appendChild(ab); tr.appendChild(c);
+    }
+    tb.appendChild(tr);
+  }
+  const manual = (manualDays[todayKey()] || []).includes(selected);
+  const today = trainedDays()[todayKey()];
+  const fromSession = !manual && !!today && today.has(selected);
+  const lb = btn("m-log");
+  lb.textContent = manual ? "✓ Đã tập hôm nay · bấm để bỏ" : fromSession ? "✓ Đã tập trong buổi hôm nay" : "Đánh dấu đã tập hôm nay";
+  lb.classList.toggle("done", manual || fromSession);
+  lb.disabled = fromSession;
+  const restTxt = "Nghỉ khoảng " + M.rest + " giờ trước khi tập nặng lại nhóm này.";
+  btn("m-rest").textContent = "Tuần này: " + fmtNum(wk) + " hiệp (mục tiêu 10–20). "
+    + (rec.hours == null ? restTxt : "Lần tập gần nhất: " + fmtHours(rec.hours) + " trước. " + restTxt);
+}
+function renderChips() {
+  const ws = mode === "vol" ? weekSets() : null;
+  for (const g of ORDER) {
+    const c = document.getElementById("chip-" + g);
+    c.setAttribute("aria-pressed", String(g === selected));
+    c.firstChild.className = "dot " + (ws ? volState(ws[g]) : recovery(g).state);
+  }
+}
+function renderWeek() {
+  const wk = btn("week"); wk.textContent = "";
+  const names = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+  let any = false;
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = dateKey(d), groups = trainedDays()[k] || new Set();
+    if (groups.size) any = true;
+    const cell = document.createElement("div"); cell.className = "day" + (i === 0 ? " today" : "");
+    const b = document.createElement("b"); b.textContent = i === 0 ? "Nay" : names[d.getDay()];
+    const sm = document.createElement("small"); sm.textContent = pad(d.getDate()) + "/" + pad(d.getMonth() + 1);
+    cell.append(b, sm);
+    for (const g of ORDER) if (groups.has(g)) {
+      const t = document.createElement("span"); t.className = "tag"; t.textContent = MUSCLES[g].short; t.title = MUSCLES[g].name; cell.appendChild(t);
+    }
+    wk.appendChild(cell);
+  }
+  btn("week-empty").hidden = any;
+}
+function refreshAll() { renderDetail(); renderChips(); renderWeek(); paint(); }
+
+btn("m-log").onclick = () => {
+  const k = todayKey(); const list = (manualDays[k] || []).slice();
+  const i = list.indexOf(selected);
+  if (i >= 0) list.splice(i, 1); else list.push(selected);
+  manualDays = Object.assign({}, manualDays, { [k]: list });
+  saveManual(); refreshAll();
+};
+
+/* ---------- Loop ---------- */
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;   // map tab hidden
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.position.sub(controls.target).setLength(w / h < 0.75 ? 4.4 : 3.6).add(controls.target);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+document.getElementById("pose-toggle").onclick = () => { const o = document.getElementById("pose").classList.toggle("open"); document.getElementById("pose-toggle").setAttribute("aria-expanded", String(o)); };
+const armSlider = document.getElementById("arm-angle"), armOut = document.getElementById("arm-val"), armBtn = document.getElementById("arm-toggle");
+armSlider.addEventListener("input", () => {
+  armTarget = armAngle = Number(armSlider.value);
+  armOut.textContent = armAngle + "°";
+  armBtn.setAttribute("aria-pressed", String(armAngle > 0));
+  armBtn.textContent = armAngle > 0 ? "Hạ tay" : "Giơ tay";
+  if (poseReady) applyPose(armAngle);
+});
+armBtn.addEventListener("click", () => {
+  armTarget = armTarget > 0 ? 0 : 120;
+  armBtn.setAttribute("aria-pressed", String(armTarget > 0));
+  armBtn.textContent = armTarget > 0 ? "Hạ tay" : "Giơ tay";
+});
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!mapVisible) return;
+  if (poseReady && armAngle !== armTarget) {
+    const step = reduceMotion ? 999 : 4;   // degrees per frame
+    armAngle = armTarget > armAngle ? Math.min(armTarget, armAngle + step) : Math.max(armTarget, armAngle - step);
+    applyPose(armAngle);
+    armSlider.value = String(Math.round(armAngle)); armOut.textContent = Math.round(armAngle) + "°";
+  }
+  if (tween) {
+    const t = Math.min(1, (now - tween.t0) / tween.dur), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const a = tween.from + (tween.to - tween.from) * e;
+    camera.position.set(controls.target.x + Math.sin(a) * tween.radius, controls.target.y + tween.y, controls.target.z + Math.cos(a) * tween.radius);
+    if (t >= 1) tween = null;
+  }
+  if (celebration) animateCelebration(now);
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+const layersEl = document.getElementById("layers");
+for (const L of LAYERS) {
+  const row = document.createElement("label"); row.className = "layer";
+  const box = document.createElement("input"); box.type = "checkbox"; box.id = "layer-" + L.id; box.checked = L.on;
+  const txt = document.createElement("span");
+  const b = document.createElement("b"); b.textContent = L.name;
+  const sm = document.createElement("small"); sm.textContent = L.desc;
+  txt.append(b, sm); row.append(box, txt); layersEl.appendChild(row);
+  box.onchange = () => {
+    L.on = box.checked; applyLayers();
+    const count = layerMeshes[L.id].length;
+    if (count) {
+      flashHint((L.on ? "Đã hiện " : "Đã ẩn ") + L.name.toLowerCase() + " (" + count + " phần)." + (L.on ? " " + L.where : ""));
+    }
+    try { localStorage.setItem(LAYER_KEY, JSON.stringify(Object.fromEntries(LAYERS.map(x => [x.id, x.on])))); } catch (e) {}
+  };
+}
+
+/* ---------- Workout logging (phone first) ---------- */
+const $ = id => document.getElementById(id);
+const fmtNum = n => String(Math.round(n * 100) / 100).replace(".", ",");
+const fmtInt = n => Math.round(n).toLocaleString("vi-VN");
+const parseNum = v => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : null; };
+const fmtClock = sec => {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  return (h ? h + ":" + pad(m) : m) + ":" + pad(s);
+};
+const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const fmtDate = k => { const [y, m, d] = k.split("-").map(Number); return WEEKDAY[new Date(y, m - 1, d).getDay()] + " " + pad(d) + "/" + pad(m); };
+const repUnit = e => e && e.hold ? "giây" : "lần";
+const fmtSets = (sets, e) => sets.map(x => e && e.hold && !x.kg ? (x.reps || 0) + "s" : fmtNum(x.kg || 0) + "×" + (x.reps || 0) + (e && e.hold ? "s" : "")).join(" · ");
+const newId = () => "s-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const fold = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+const blankSets = n => Array.from({ length: Math.max(1, n) }, () => ({ kg: null, reps: null, done: false }));
+// SVG icon from the sprite at the top of the page.
+function ico(name) {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), use = document.createElementNS(NS, "use");
+  svg.setAttribute("class", "ico"); svg.setAttribute("aria-hidden", "true");
+  use.setAttribute("href", "#i-" + name); svg.appendChild(use);
+  return svg;
+}
+// Button system: pass classes like "b b-secondary b-sm"; icon is an optional sprite name; the label sits in a <span>.
+function mkBtn(cls, text, fn, icon) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = cls;
+  if (icon) b.appendChild(ico(icon));
+  if (text) { const t = document.createElement("span"); t.textContent = text; b.appendChild(t); }
+  if (fn) b.onclick = fn;
+  return b;
+}
+function callout(kind, icon, text) {
+  const p = document.createElement("p"); p.className = "callout " + kind;
+  const t = document.createElement("span"); t.textContent = text;
+  p.append(ico(icon), t); return p;
+}
+// Two taps to confirm anything destructive (the viewer has no confirm() dialog).
+function armConfirm(b, confirmText, action) {
+  const lab = b.querySelector("span") || b, orig = lab.textContent; let armed = false, t = 0;
+  b.onclick = () => {
+    if (armed) { clearTimeout(t); armed = false; lab.textContent = orig; action(); return; }
+    armed = true; lab.textContent = confirmText;
+    t = setTimeout(() => { armed = false; lab.textContent = orig; }, 3000);
+  };
+}
+let toastT = 0;
+function toast(t, record) {
+  const el = $("toast"); el.textContent = t; el.classList.toggle("pr", !!record); el.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, record ? 3600 : 2600);
+}
+
+function sortedSessions() { return Object.values(sessions).sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)); }
+function lastPerformance(exId) {
+  for (const s of sortedSessions()) {
+    const e = (s.exercises || []).find(x => x.id === exId);
+    if (e && e.sets && e.sets.length) return { date: s.date, sets: e.sets };
+  }
+  return null;
+}
+function nextDay() {
+  const last = sortedSessions().find(s => CYCLE.includes(s.type));
+  return last ? CYCLE[(CYCLE.indexOf(last.type) + 1) % 3] : "push";
+}
+// Double progression: once every set reached the top of the rep range, add load.
+function progression(e, prev) {
+  if (!prev || !prev.sets.length || !prev.sets.every(x => (x.reps || 0) >= e.reps[1])) return null;
+  const heaviest = Math.max(...prev.sets.map(x => x.kg || 0));
+  if (e.hold) return "Lần trước giữ được " + e.reps[1] + "+ giây mọi hiệp: chuyển sang biến thể khó hơn hoặc đeo thêm tạ.";
+  if (e.bw && heaviest === 0) return "Lần trước đạt " + e.reps[1] + "+ lần mọi hiệp: thử đeo thêm " + fmtNum(e.inc) + " kg.";
+  return "Lần trước đạt " + e.reps[1] + "+ lần mọi hiệp: thử " + fmtNum(heaviest + e.inc) + " kg.";
+}
+
+// Alternatives share the first primary muscle; same-day ones first.
+function alternativesFor(id, avoid) {
+  const e = EX[id];
+  return EXERCISES.filter(x => x.id !== id && x.p[0] === e.p[0] && !(avoid && avoid.has(x.id)))
+    .sort((a, b) => (b.day === e.day) - (a.day === e.day));
+}
+// One hint per card: deload > decrease > stall > increase.
+function exerciseHint(e, prev) {
+  if (e.mob) return null;   // no load or deload advice on warm-ups and stretches
+  if (deloadOn()) return { kind: "deload", text: "Tuần giảm tải: giữ mức tạ, giảm khoảng 1/3 số hiệp." };
+  const h = exerciseHistory(e.id), top = r => Math.max(0, ...r.sets.map(x => x.kg || 0));
+  if (h.length >= 2) {
+    const [a, b] = h.slice(-2), missed = r => r.sets.some(x => (x.reps || 0) < e.reps[0]);
+    if (missed(a) && missed(b) && top(b) >= top(a) && top(b) > 0) {
+      let w = Math.round(top(b) * 0.9 / e.inc) * e.inc;
+      if (w >= top(b)) w = top(b) - e.inc;
+      return { kind: "down", text: "Hai buổi liền hụt " + e.reps[0] + " " + repUnit(e) + ": thử " + fmtNum(Math.max(0, w)) + " kg." };
+    }
+  }
+  if (h.length >= 4) {
+    const score = r => Math.max(...r.sets.map(x => e.bw ? (x.kg || 0) * 10 + (x.reps || 0) : e1rm(x.kg, x.reps)));
+    const recent = Math.max(...h.slice(-3).map(score)), before = Math.max(...h.slice(0, -3).map(score));
+    const alt = (active && alternativesFor(e.id, new Set(active.exercises.map(x => x.id)))[0]) || alternativesFor(e.id)[0];
+    if (alt && recent <= before + 0.05) return { kind: "stall", text: "Chững 3 buổi: cân nhắc đổi sang " + alt.name + "." };
+  }
+  const up = progression(e, prev);
+  return up ? { kind: "up", text: up } : null;
+}
+function endDeload() { programs.deloadStart = 0; savePrograms(); }
+// Consecutive Monday-based weeks with 3+ saved sessions since the last deload. A week still in progress
+// counts once it has 3 but never breaks the run.
+function deloadStreak() {
+  const counts = {};
+  for (const s of Object.values(sessions)) { const k = weekOf(keyDate(s.date)).start.getTime(); counts[k] = (counts[k] || 0) + 1; }
+  const minStart = programs.lastDeload ? weekOf(new Date(programs.lastDeload + 7 * 864e5)).start.getTime() : 0;
+  let w = weekOf(new Date()).start, n = (counts[w.getTime()] || 0) >= 3 ? 1 : 0;
+  w = new Date(w.getFullYear(), w.getMonth(), w.getDate() - 7);
+  while (w.getTime() >= minStart && (counts[w.getTime()] || 0) >= 3) { n++; w = new Date(w.getFullYear(), w.getMonth(), w.getDate() - 7); }
+  return n;
+}
+// "Hôm nay tập gì": the next day of the cycle, unless most of its primary muscles are still hot.
+function dayGroups(t) { const g = new Set(); basePlan(t).forEach(x => EX[x.id].p.forEach(m => g.add(m))); return [...g]; }
+function todayPick() {
+  const nd = nextDay();
+  const st = t => { const gs = dayGroups(t), rs = gs.map(g => recovery(g).state); return { t, gs, n: gs.length, hot: gs.filter((g, i) => rs[i] === "hot"), ready: rs.filter(x => x === "ok" || x === "none").length }; };
+  const a = st(nd);
+  if (!a.n || a.hot.length * 2 <= a.n) return { t: nd };
+  const best = CYCLE.filter(t => t !== nd).map(st).filter(x => x.n).sort((x, y) => y.ready / y.n - x.ready / x.n)[0];
+  const names = a.hot.slice(0, 3).map(g => MUSCLES[g].name).join(", ");
+  if (best && best.ready * 2 >= best.n) return { t: best.t, why: "Buổi " + DAYS[nd].name + " còn mỏi (" + names + " vừa tập), nên tập " + DAYS[best.t].name + " trước." };
+  return { t: nd, rest: true, why: "Các nhóm cơ chính còn mỏi (" + names + " vừa tập), nên nghỉ hôm nay." };
+}
+function renderToday() {
+  const box = $("today"); box.textContent = "";
+  const pk = todayPick();
+  const l = document.createElement("p"); l.className = "label"; l.textContent = "Hôm nay tập gì";
+  const t = document.createElement("p"); t.className = "t-big"; t.textContent = pk.rest ? "Nghỉ" : DAYS[pk.t].name;
+  const v = document.createElement("p"); v.className = "meta"; v.textContent = pk.rest ? "Hoặc tập nhẹ " + DAYS[pk.t].name + " (" + DAYS[pk.t].vi + ")" : DAYS[pk.t].vi;
+  box.append(l, t, v);
+  const why = document.createElement("p"); why.className = "t-why";
+  why.textContent = pk.why || (sortedSessions().find(s => CYCLE.includes(s.type)) ? "Theo vòng Push → Pull → Legs, đây là buổi tiếp theo." : "Chưa có buổi nào, bắt đầu từ Push.");
+  box.appendChild(why);
+  box.appendChild(mkBtn("b b-md b-block " + (pk.rest ? "b-secondary" : "b-primary"), (pk.rest ? "Vẫn tập " : "Bắt đầu ") + DAYS[pk.t].name, () => startSession(pk.t), "play"));
+  // deload
+  const dc = $("deload-card"); dc.textContent = "";
+  if (deloadOn()) {
+    dc.hidden = false;
+    const p = document.createElement("p"); p.className = "label"; p.append(ico("leaf"), "Tuần giảm tải");
+    const m = document.createElement("p"); m.className = "t-why";
+    m.textContent = "Đang giảm tải đến " + fmtDate(dateKey(new Date(programs.deloadStart + 7 * 864e5))) + ": mỗi bài còn khoảng 2/3 số hiệp, giữ mức tạ.";
+    dc.append(p, m, mkBtn("b b-ghost b-sm", "Kết thúc sớm", () => { endDeload(); renderIdle(); }));
+  } else {
+    const n = deloadStreak();
+    dc.hidden = n < 5;
+    if (n >= 5) {
+      const p = document.createElement("p"); p.className = "label"; p.append(ico("leaf"), "Giảm tải");
+      const m = document.createElement("p"); m.className = "t-why";
+      m.textContent = "Đã tập đều " + n + " tuần, tuần này nên giảm tải: giữ mức tạ, giảm khoảng 1/3 số hiệp.";
+      dc.append(p, m, mkBtn("b b-secondary b-md b-block", "Bắt đầu tuần giảm tải", () => { programs.deloadStart = programs.lastDeload = Date.now(); savePrograms(); renderIdle(); }));
+    }
+  }
+}
+
+/* Program editor ("Giáo án") */
+let editingProg = false, progDay = "push", swapIdx = -1;
+function progEdit(fn) {
+  const plan = basePlan(progDay); fn(plan);
+  programs.days[progDay] = plan; savePrograms(); renderProgEditor();
+}
+function openProg() { editingProg = true; swapIdx = -1; renderIdle(); renderProgEditor(); window.scrollTo(0, 0); }
+function closeProg() { editingProg = false; $("w-picker").hidden = true; pickCb = null; renderIdle(); window.scrollTo(0, 0); }
+function renderProgEditor() {
+  const box = $("w-prog"); box.textContent = "";
+  const head = document.createElement("div"); head.className = "w-head";
+  const hb = document.createElement("div"); const hbb = document.createElement("b"); hbb.textContent = "Giáo án"; hb.appendChild(hbb);
+  head.append(hb, mkBtn("b b-primary b-sm", "Xong", closeProg, "check"));
+  const card = document.createElement("div"); card.className = "card";
+  const seg = document.createElement("div"); seg.className = "seg full"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Chọn ngày");
+  for (const t of CYCLE) { const b = mkBtn("", DAYS[t].name, () => { progDay = t; swapIdx = -1; renderProgEditor(); }); b.setAttribute("aria-pressed", String(t === progDay)); seg.appendChild(b); }
+  card.appendChild(seg);
+  const plan = basePlan(progDay), have = new Set(plan.map(x => x.id));
+  const info = document.createElement("p"); info.className = "meta";
+  info.textContent = programs.days[progDay] ? "Giáo án đã lưu cho " + DAYS[progDay].name + "." : "Chưa chỉnh: đang dùng " + (sortedSessions().some(s => s.type === progDay) ? "bài của buổi trước." : "bài mặc định.");
+  card.appendChild(info);
+  plan.forEach((x, i) => {
+    const e = EX[x.id], row = document.createElement("div"); row.className = "pe-row";
+    const nm = document.createElement("div"); const b = document.createElement("b"); b.textContent = e.name;
+    const sm = document.createElement("small"); sm.textContent = e.vi + " · " + e.p.map(g => MUSCLES[g].name).join(", "); nm.append(b, sm);
+    const ctl = document.createElement("div"); ctl.className = "pe-ctl";
+    const up = mkBtn("b b-secondary b-sm b-icon", "", () => progEdit(p => { if (i > 0) [p[i - 1], p[i]] = [p[i], p[i - 1]]; swapIdx = -1; }), "up");
+    up.setAttribute("aria-label", "Đưa " + e.name + " lên"); up.disabled = i === 0;
+    const dn = mkBtn("b b-secondary b-sm b-icon", "", () => progEdit(p => { if (i < p.length - 1) [p[i + 1], p[i]] = [p[i], p[i + 1]]; swapIdx = -1; }), "down");
+    dn.setAttribute("aria-label", "Đưa " + e.name + " xuống"); dn.disabled = i === plan.length - 1;
+    const mn = mkBtn("b b-secondary b-sm b-icon", "", () => progEdit(p => { p[i].n = Math.max(1, p[i].n - 1); }), "minus"); mn.setAttribute("aria-label", "Bớt một hiệp"); mn.disabled = x.n <= 1;
+    const n = document.createElement("span"); n.className = "pe-n"; n.textContent = x.n + " hiệp";
+    const pl = mkBtn("b b-secondary b-sm b-icon", "", () => progEdit(p => { p[i].n = Math.min(10, p[i].n + 1); }), "plus"); pl.setAttribute("aria-label", "Thêm một hiệp"); pl.disabled = x.n >= 10;
+    const sw = mkBtn("b b-ghost b-sm", "Đổi bài", () => { swapIdx = swapIdx === i ? -1 : i; renderProgEditor(); }, "swap");
+    sw.setAttribute("aria-expanded", String(swapIdx === i));
+    const rm = mkBtn("b b-ghost b-danger b-sm", "Xóa", () => progEdit(p => { p.splice(i, 1); swapIdx = -1; }), "trash");
+    rm.setAttribute("aria-label", "Xóa " + e.name);
+    ctl.append(up, dn, mn, n, pl, sw, rm);
+    row.append(nm, ctl);
+    if (swapIdx === i) {
+      const alts = alternativesFor(x.id, have), box2 = document.createElement("div"); box2.className = "pe-alt";
+      for (const a of alts) {
+        const it = mkBtn("pk-item", "", () => progEdit(p => { p[i].id = a.id; swapIdx = -1; }));
+        const ab = document.createElement("b"); ab.textContent = a.name; const as = document.createElement("small"); as.textContent = a.vi;
+        it.append(ab, as); box2.appendChild(it);
+      }
+      if (!alts.length) { const em = document.createElement("p"); em.className = "empty"; em.textContent = "Không có bài thay thế cho nhóm cơ này."; box2.appendChild(em); }
+      row.appendChild(box2);
+    }
+    card.appendChild(row);
+  });
+  if (!plan.length) { const em = document.createElement("p"); em.className = "empty"; em.textContent = "Ngày này chưa có bài nào."; card.appendChild(em); }
+  const row = document.createElement("div"); row.className = "btn-row";
+  row.append(mkBtn("b b-secondary b-md", "Thêm bài", () => openPicker(progDay, id => { $("w-picker").hidden = true; pickCb = null; progEdit(p => { p.push({ id, n: EX[id].sets }); }); }, have), "plus"));
+  const rs = mkBtn("b b-danger b-md", "Khôi phục mặc định");
+  armConfirm(rs, "Bấm lần nữa để khôi phục", () => { programs.days[progDay] = DAYS[progDay].plan.map(id => ({ id, n: EX[id].sets })); swapIdx = -1; savePrograms(); renderProgEditor(); toast("Đã khôi phục giáo án " + DAYS[progDay].name + " mặc định."); });
+  row.appendChild(rs);
+  card.appendChild(row);
+  box.append(head, card);
+}
+$("w-prog-open").onclick = openProg;
+
+/* Idle screen: start buttons + history */
+function renderIdle() {
+  $("w-idle").hidden = !!active || editingProg;
+  $("w-prog").hidden = !!active || !editingProg;
+  $("w-active").hidden = !active;
+  if (active || editingProg) return;
+  renderToday(); paintMob(); renderFlex();
+  const nd = todayPick().t, box = $("ppl-buttons");
+  box.textContent = "";
+  for (const t of CYCLE) {
+    const b = mkBtn(t === nd ? "next" : "", "", () => startSession(t));
+    const badge = document.createElement("span"); badge.className = "badge"; badge.textContent = t === nd ? "Gợi ý" : "";
+    const name = document.createElement("b"); name.textContent = DAYS[t].name;
+    const mus = document.createElement("small"); mus.textContent = DAYS[t].vi;
+    b.dataset.day = t;
+    b.append(badge, ico(t), name, mus);
+    const last = sortedSessions().find(s => s.type === t);
+    if (last) { const when = document.createElement("small"); when.textContent = "Lần trước " + fmtDate(last.date); b.appendChild(when); }
+    box.appendChild(b);
+  }
+  renderWeekVol();
+  renderCalendar();
+  renderHistory();
+}
+// "18 hiệp · 4.320 kg · 62 phút"
+function sessionLine(s) {
+  const ex = s.exercises || [];
+  const sets = ex.reduce((n, e) => n + e.sets.length, 0);
+  const vol = ex.reduce((n, e) => n + e.sets.reduce((m, x) => m + (x.kg || 0) * (x.reps || 0), 0), 0);
+  const mins = s.endedAt && s.startedAt ? Math.round((s.endedAt - s.startedAt) / 60000) : null;
+  return sets + " hiệp · " + fmtInt(vol) + " kg" + (mins ? " · " + mins + " phút" : "");
+}
+// Exercises of a saved session; each name opens its progress chart.
+function exerciseList(ex) {
+  const ul = document.createElement("ul");
+  for (const e of ex) {
+    const li = document.createElement("li");
+    if (EX[e.id]) {
+      const nb = mkBtn("exname", EX[e.id].name, () => openProgress(e.id));
+      nb.setAttribute("aria-label", EX[e.id].name + ", xem tiến độ");
+      li.appendChild(nb);
+    } else li.append(e.id);
+    const k = document.createElement("span"); k.className = "kg"; k.textContent = fmtSets(e.sets, EX[e.id]);
+    li.append(": ", k); ul.appendChild(li);
+  }
+  return ul;
+}
+let histLimit = 10;
+function renderHistory() {
+  const list = sortedSessions(), box = $("w-history");
+  box.textContent = "";
+  $("w-history-empty").hidden = list.length > 0;
+  for (const s of list.slice(0, histLimit)) {
+    const d = document.createElement("details");
+    const sum = document.createElement("summary");
+    const a = document.createElement("b"); a.textContent = fmtDate(s.date) + " · " + (DAYS[s.type] || DAYS.free).name;
+    const b = document.createElement("span"); b.textContent = sessionLine(s);
+    sum.append(a, b); d.appendChild(sum);
+    d.appendChild(exerciseList(s.exercises || []));
+    const del = mkBtn("b b-ghost b-danger b-sm", "Xóa buổi này", null, "trash");
+    armConfirm(del, "Bấm lần nữa để xóa", () => { removeSession(s.id); refreshAll(); renderIdle(); toast("Đã xóa buổi tập."); });
+    d.appendChild(del);
+    box.appendChild(d);
+  }
+  if (list.length > histLimit) box.appendChild(mkBtn("b b-ghost b-sm", "Xem thêm " + Math.min(10, list.length - histLimit) + " buổi", () => { histLimit += 10; renderHistory(); }, "down"));
+}
+
+/* Active session */
+// Plan for a day: the saved program, else the plan of the last session of that type (every exercise
+// that was on it, done or skipped, with its number of sets), else the default day.
+function basePlan(type) {
+  if (type === "free") return [];
+  const saved = programs.days[type];
+  if (saved && saved.length) return saved.filter(x => EX[x.id]).map(x => ({ id: x.id, n: x.n }));
+  const prev = sortedSessions().find(s => s.type === type);
+  if (prev) return (prev.plan || prev.exercises.map(e => ({ id: e.id, n: e.sets.length }))).filter(x => EX[x.id]).map(x => ({ id: x.id, n: x.n }));
+  return DAYS[type].plan.map(id => ({ id, n: EX[id].sets }));
+}
+const deloadOn = () => !!programs.deloadStart && Date.now() < programs.deloadStart + 7 * 864e5;
+function startSession(type) {
+  const plan = basePlan(type), dl = deloadOn();
+  // In a deload week about 2/3 of the sets; `full` keeps the normal count for the next plan.
+  let exercises = plan.map(x => dl ? { id: x.id, full: x.n, sets: blankSets(Math.max(1, Math.round(x.n * 2 / 3))) } : { id: x.id, sets: blankSets(x.n) });
+  const M = MOBILITY[type];
+  if (M && programs.mobility !== false) {
+    const have = new Set(exercises.map(x => x.id));
+    const block = ids => ids.filter(id => EX[id] && !have.has(id) && have.add(id)).map(id => ({ id, sets: blankSets(EX[id].sets) }));
+    exercises = block(M.warm).concat(exercises, block(M.cool.concat(MOB_FOCUS)));
+  }
+  active = { id: newId(), type, startedAt: Date.now(), restEnd: 0, restTotal: 0, exercises };
+  saveActive(true); ensureAudio(); keepAwake();
+  renderActive(); window.scrollTo(0, 0);
+  if (type === "free") openPicker();
+}
+function renderActive() {
+  renderIdle();
+  renderDetail();
+  if (!active) { if (!editingProg) $("w-picker").hidden = true; $("w-summary").hidden = true; return; }
+  $("w-title").textContent = (DAYS[active.type] || DAYS.free).name;
+  const list = $("w-list");
+  list.textContent = "";
+  active.exercises.forEach((ae, idx) => { if (EX[ae.id]) list.appendChild(exerciseCard(ae, idx)); });
+  $("w-empty").hidden = active.exercises.length > 0;
+  markNext(); updateProgress();
+  updateClock();
+}
+// Exercise illustration: lazy-loaded, swaps start/end photo; timer dies with the node.
+function ytLink(e) {
+  const a = document.createElement("a"); a.className = "b b-ghost b-sm"; a.append(ico("video")); { const t = document.createElement("span"); t.textContent = "Xem video"; a.appendChild(t); }
+  a.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent(e.yt || e.name + " proper form");
+  a.target = "_blank"; a.rel = "noopener";
+  a.setAttribute("aria-label", "Xem video " + e.name + " trên YouTube");
+  return a;
+}
+function demoFrame(e) {
+  const box = document.createElement("div"); box.className = "demo";
+  const mk = (n, label) => { const im = document.createElement("img"); im.src = "img/" + e.id + "-" + n + ".jpg"; im.alt = e.name + ": tư thế " + label; im.decoding = "async"; return im; };
+  const a = mk(0, "bắt đầu"), b = mk(1, "kết thúc");
+  if (reduceMotion) { box.classList.add("two"); box.append(a, b); return box; }
+  box.appendChild(a);
+  let cur = a, t = setInterval(() => {
+    if (!box.isConnected) { clearInterval(t); return; }
+    cur = cur === a ? b : a; box.replaceChildren(cur);
+  }, 1200);
+  box._stop = () => clearInterval(t);
+  return box;
+}
+// The first set still to do in the whole session gets a ring.
+function markNext() {
+  const rows = [...document.querySelectorAll("#w-list .set")];
+  rows.forEach(r => r.classList.remove("next"));
+  const n = rows.find(r => !r.classList.contains("done"));
+  if (n) n.classList.add("next");
+}
+// Ring in the session header: ticked sets / planned sets over every card.
+function updateProgress() {
+  if (!active) return;
+  let done = 0, total = 0;
+  for (const e of active.exercises) { total += e.sets.length; done += e.sets.filter(x => x.done).length; }
+  const r = $("w-ring"), full = total > 0 && done === total;
+  r.querySelector(".rf").style.strokeDashoffset = String(94.25 * (1 - (total ? done / total : 0)));
+  r.classList.toggle("full", full);
+  $("w-ring-t").textContent = done + "/" + total;
+  r.setAttribute("aria-label", "Đã xong " + done + " trên " + total + " hiệp");
+  $("w-finish").classList.toggle("glow", full);
+}
+// First undone set: after the one just ticked in the same card, else the next card (then any earlier one).
+function nextSet() {
+  if (!active) return null;
+  const at = (c, from) => { const ae = active.exercises[c]; if (!ae || !EX[ae.id]) return null; for (let k = from; k < ae.sets.length; k++) if (!ae.sets[k].done) return { c, k }; return null; };
+  const start = lastTick != null && lastTick < active.exercises.length ? lastTick : 0;
+  let r = at(start, 0);
+  for (let c = start + 1; !r && c < active.exercises.length; c++) r = at(c, 0);
+  for (let c = 0; !r && c < start; c++) r = at(c, 0);
+  return r;
+}
+function nextSetText() {
+  const n = nextSet(); if (!n) return null;
+  const ae = active.exercises[n.c], e = EX[ae.id], st = ae.sets[n.k], h = setHints(ae, n.k, lastPerformance(ae.id), e);
+  const kg = st.kg != null ? st.kg : h.kgHint, reps = st.reps != null ? st.reps : h.repHint;
+  const load = kg != null ? fmtNum(kg) + " kg" : null, rp = reps != null ? String(reps) : e.reps[0] + "–" + e.reps[1];
+  return { n, text: "Tiếp: " + e.name + " · " + (load && kg ? load + " × " + rp + (e.hold ? " giây" : "") : rp + " " + repUnit(e)) };
+}
+function rerenderCard(idx) { const old = $("ex-" + idx); if (old) old.replaceWith(exerciseCard(active.exercises[idx], idx)); markNext(); updateProgress(); }
+function exerciseCard(ae, idx) {
+  const e = EX[ae.id], prev = lastPerformance(ae.id);
+  const card = document.createElement("article"); card.className = "ex"; card.id = "ex-" + idx;
+  const head = document.createElement("div");
+  const h = document.createElement("h3");
+  const hn = mkBtn("exname", e.name, () => openProgress(ae.id));
+  hn.setAttribute("aria-label", e.name + ", xem tiến độ");
+  h.appendChild(hn);
+  const vi = document.createElement("p"); vi.className = "vi"; vi.textContent = e.vi;
+  head.append(h, vi);
+  const mus = document.createElement("div"); mus.className = "mus";
+  for (const g of e.p) { const s = document.createElement("span"); s.className = "p"; s.textContent = MUSCLES[g].name; mus.appendChild(s); }
+  for (const g of e.s) { const s = document.createElement("span"); s.textContent = MUSCLES[g].name; mus.appendChild(s); }
+  const info = document.createElement("p"); info.className = "info";
+  info.append("Mục tiêu ");
+  const range = e.reps[0] === e.reps[1] ? String(e.reps[0]) : e.reps[0] + "–" + e.reps[1];
+  const tgt = document.createElement("b"); tgt.textContent = e.sets + " × " + range + (e.hold ? " giây" : e.mob ? " lần" : "");
+  if (e.mob) info.append(tgt);
+  else { const rst = document.createElement("b"); rst.textContent = fmtClock(e.rest); info.append(tgt, " · nghỉ ", rst); }
+  if (e.mob) { card.classList.add("mob"); const tag = document.createElement("span"); tag.className = "mob-tag"; tag.textContent = e.mob === "warm" ? "Khởi động" : "Giãn cơ"; head.prepend(tag); }
+  card.append(head, mus, info);
+  if (prev) {
+    const p = document.createElement("p"); p.className = "info";
+    p.textContent = "Lần trước " + fmtDate(prev.date) + ": " + fmtSets(prev.sets, e);
+    card.appendChild(p);
+  }
+  const hh = exerciseHint(e, prev);
+  if (hh) {
+    const u = callout(hh.kind === "deload" ? "deload" : hh.kind === "up" ? "up" : hh.kind === "down" ? "down" : "stall",
+      hh.kind === "deload" ? "leaf" : hh.kind === "up" ? "trend-up" : hh.kind === "down" ? "trend-down" : "flat", hh.text);
+    if (hh.kind === "deload") u.appendChild(mkBtn("b b-ghost b-sm", "Kết thúc sớm", () => { endDeload(); renderActive(); }));
+    card.appendChild(u);
+  }
+  const cue = document.createElement("div"); cue.className = "cue"; cue.hidden = true;
+  const cueTx = document.createElement("p"); cueTx.style.margin = "0 0 8px"; cueTx.textContent = e.cue; cue.appendChild(cueTx);
+  let demo = null;
+  const sets = document.createElement("div"); sets.className = "sets";
+  ae.sets.forEach((st, i) => sets.appendChild(setRow(ae, idx, i, prev, e)));
+  card.append(cue, sets);
+  const foot = document.createElement("div"); foot.className = "ex-foot";
+  const add = mkBtn("b b-secondary b-md b-block", "Hiệp", () => {
+    const last = ae.sets[ae.sets.length - 1];
+    ae.sets.push({ kg: last ? last.kg : null, reps: last ? last.reps : null, done: false });
+    saveActive(); rerenderCard(idx);
+  }, "plus");
+  add.setAttribute("aria-label", "Thêm một hiệp");
+  const see = mkBtn("b b-ghost b-sm", "Xem cơ", () => showExerciseOnMap(ae.id), "chart");
+  see.setAttribute("aria-label", "Xem cơ trên mô hình");
+  const tech = mkBtn("b b-ghost b-sm", "Kỹ thuật", () => {
+    cue.hidden = !cue.hidden; tech.setAttribute("aria-expanded", String(!cue.hidden));
+    if (cue.hidden) { if (demo) { demo._stop && demo._stop(); demo.remove(); demo = null; } }
+    else if (!demo && !e.noImg) { demo = demoFrame(e); cue.appendChild(demo); }
+  }, "play");
+  tech.setAttribute("aria-expanded", "false");
+  const del = mkBtn("b b-ghost b-danger b-sm", "Xóa bài", null, "trash");
+  armConfirm(del, "Bấm lần nữa để xóa bài", () => { active.exercises.splice(idx, 1); saveActive(); renderActive(); });
+  foot.append(add, see, tech, ytLink(e), del);
+  card.appendChild(foot);
+  return card;
+}
+function numInput(val, ph, unit, mode, label, onChange) {
+  const wrap = document.createElement("label"); wrap.className = "num";
+  const inp = document.createElement("input");
+  inp.type = "text"; inp.inputMode = mode; inp.autocomplete = "off"; inp.placeholder = ph;
+  inp.value = val == null ? "" : fmtNum(val);
+  inp.setAttribute("aria-label", label);
+  inp.addEventListener("input", () => onChange(inp.value.trim() === "" ? null : parseNum(inp.value)));
+  const u = document.createElement("span"); u.textContent = unit;
+  wrap.append(inp, u);
+  return wrap;
+}
+// Grey hints for a set: the same set last session, else the set above.
+function setHints(ae, i, prev, e) {
+  let above = null;
+  for (let j = i - 1; j >= 0 && !above; j--) if (ae.sets[j].reps != null) above = ae.sets[j];
+  const ref = (prev && prev.sets[i]) || above;
+  return { kgHint: ref && ref.kg != null ? ref.kg : (e.bw ? 0 : null), repHint: ref && ref.reps != null ? ref.reps : null };
+}
+// A ticked set against the same set last session: { cls, text } or null.
+function compareSet(st, prevSet, unit) {
+  if (!prevSet) return null;
+  const kg = (st.kg || 0) - (prevSet.kg || 0), reps = (st.reps || 0) - (prevSet.reps || 0);
+  if (!kg && !reps) return { cls: "", text: "=" };
+  const parts = [];
+  if (kg) parts.push((kg > 0 ? "+" : "−") + fmtNum(Math.abs(kg)) + " kg");
+  if (reps) parts.push((reps > 0 ? "+" : "−") + Math.abs(reps) + " " + (unit || "lần"));
+  const beat = (kg > 0 && reps >= 0) || (reps > 0 && kg >= 0);
+  return beat ? { cls: "up", text: "↑ " + parts.join(" · ") } : { cls: "", text: "↓ " + parts.join(" · ") };
+}
+function setRow(ae, idx, i, prev, e) {
+  const st = ae.sets[i];
+  const row = document.createElement("div"); row.className = "set" + (st.done ? " done" : "") + (e.mob ? " nokg" : "");
+  const n = document.createElement("span"); n.className = "set-n"; n.textContent = i + 1;
+  // Grey hints come from the same set last session, else from the set above. Tapping ✓ on an
+  // empty row copies them, so repeating last time's numbers is one tap.
+  const { kgHint, repHint } = setHints(ae, i, prev, e);
+  const kg = numInput(st.kg, kgHint != null ? fmtNum(kgHint) : "", e.bw ? "+kg" : "kg", "decimal",
+    "Hiệp " + (i + 1) + ", " + (e.bw ? "số kg đeo thêm" : "số kg"),
+    v => { st.kg = v == null ? null : Math.min(1000, Math.max(0, v)); saveActive(); });
+  const x = document.createElement("span"); x.className = "x"; x.textContent = "×";
+  const reps = numInput(st.reps, repHint != null ? String(repHint) : e.reps[0] + "–" + e.reps[1], repUnit(e), "numeric",
+    "Hiệp " + (i + 1) + ", số " + repUnit(e),
+    v => { st.reps = v == null ? null : Math.min(500, Math.max(0, Math.round(v))); saveActive(); });
+  const tick = mkBtn("b b-icon tick", "", () => {
+    let burst = false;
+    ensureAudio(); lastTick = idx;
+    if (!st.done) {
+      if (st.kg == null) st.kg = kgHint;
+      if (st.reps == null) st.reps = repHint;
+      if (st.kg == null) { kg.querySelector("input").focus(); return; }
+      if (st.reps == null) { reps.querySelector("input").focus(); return; }
+      st.done = true;
+      if (e.rest) startRest(e.rest);
+      const rec = recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i));
+      if (rec) { toast("Kỷ lục mới · " + e.name + ": " + rec, true); burst = true; }
+    } else st.done = false;
+    saveActive(); rerenderCard(idx);
+    if (burst) celebrate($("ex-" + idx).querySelectorAll(".set")[i]);
+  }, "check");
+  tick.setAttribute("aria-pressed", String(!!st.done));
+  tick.setAttribute("aria-label", "Xong hiệp " + (i + 1));
+  const del = mkBtn("b b-icon b-ghost del", "", () => {
+    ae.sets.splice(i, 1);
+    if (!ae.sets.length) ae.sets.push({ kg: null, reps: null, done: false });
+    saveActive(); rerenderCard(idx);
+  }, "minus");
+  del.setAttribute("aria-label", "Xóa hiệp " + (i + 1));
+  row.append(n, kg, x, reps, tick, del);
+  const rec = st.done && recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i));
+  const cmp = st.done ? compareSet(st, prev && prev.sets[i], repUnit(e)) : null;
+  if (rec || cmp) {
+    const sub = document.createElement("div"); sub.className = "sub";
+    if (cmp) { const c = document.createElement("span"); c.className = "cmp " + cmp.cls; c.textContent = cmp.text; c.title = "So với hiệp này của buổi trước"; sub.appendChild(c); }
+    if (rec) {
+      const p = document.createElement("span"); p.className = "pr";
+      const b = document.createElement("b"); b.textContent = "Kỷ lục mới";
+      p.append(b, rec); sub.appendChild(p);
+    }
+    row.appendChild(sub);
+  }
+  return row;
+}
+// Ticked sets that come before set i of card idx in this workout (an exercise can be on two cards).
+function earlierSets(idx, i) {
+  const id = active.exercises[idx].id, out = [];
+  active.exercises.forEach((ae, j) => {
+    if (ae.id !== id || j > idx) return;
+    ae.sets.forEach((s, k) => { if (s.done && (j < idx || k < i)) out.push({ kg: s.kg || 0, reps: s.reps || 0 }); });
+  });
+  return out;
+}
+
+/* Exercise picker */
+const FILTERS = [["all", "Tất cả"], ["push", "Push"], ["pull", "Pull"], ["legs", "Legs"], ["core", "Bụng"], ["mob", "Giãn cơ"]];
+let pkFilter = "all";
+let pickCb = null, pickHave = null;   // editor mode: callback + ids already in the plan
+function openPicker(day, cb, have) {
+  pickCb = cb || null; pickHave = have || null;
+  $("w-picker").hidden = false; $("pk-q").value = "";
+  pkFilter = day || (active && CYCLE.includes(active.type) ? active.type : "all");
+  renderPicker();
+  $("w-picker").scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+}
+function renderPicker() {
+  const fb = $("pk-filters"); fb.textContent = "";
+  for (const [k, label] of FILTERS) {
+    const c = mkBtn("b b-secondary b-sm b-pill chip", label, () => { pkFilter = k; renderPicker(); });
+    c.setAttribute("aria-pressed", String(pkFilter === k));
+    fb.appendChild(c);
+  }
+  const q = fold($("pk-q").value.trim());
+  const have = pickCb ? (pickHave || new Set()) : new Set(active ? active.exercises.map(e => e.id) : []);
+  const list = $("pk-list"); list.textContent = "";
+  // When searching, exercises whose name or primary muscles match come before secondary-only matches.
+  const rank = e => {
+    if (!q) return 0;
+    if (fold(e.name + " " + e.vi + " " + e.p.map(g => MUSCLES[g].name).join(" ")).includes(q)) return 1;
+    return fold(e.s.map(g => MUSCLES[g].name).join(" ")).includes(q) ? 2 : 0;
+  };
+  const hits = EXERCISES.filter(e => (q || pkFilter === "all" || e.day === pkFilter) && (!q || rank(e) > 0))
+    .sort((x, y) => rank(x) - rank(y));
+  for (const e of hits) {
+    const it = mkBtn("pk-item", "", () => pickCb ? pickCb(e.id) : addExercise(e.id));
+    const b = document.createElement("b"); b.textContent = e.name + (have.has(e.id) ? "  ·  đã có" : "");
+    const s = document.createElement("small"); s.textContent = e.vi + " · " + e.p.map(g => MUSCLES[g].name).join(", ");
+    it.append(b, s); list.appendChild(it);
+  }
+  if (!hits.length) { const p = document.createElement("p"); p.className = "empty"; p.textContent = "Không tìm thấy bài nào."; list.appendChild(p); }
+}
+function addExercise(id, fromMap) {
+  if (!active || !EX[id]) return;
+  active.exercises.push({ id, sets: blankSets(EX[id].sets) });
+  saveActive();
+  $("w-picker").hidden = true;
+  renderActive();
+  if (fromMap) { toast("Đã thêm " + EX[id].name + " vào buổi " + (DAYS[active.type] || DAYS.free).name + "."); return; }
+  const card = $("ex-" + (active.exercises.length - 1));
+  if (card) card.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+}
+$("pk-q").addEventListener("input", renderPicker);
+$("pk-close").onclick = () => { $("w-picker").hidden = true; pickCb = null; };
+$("w-add").onclick = () => openPicker();
+$("w-free").onclick = () => startSession("free");
+
+/* Rest timer, clock, sound and screen wake */
+let lastTick = null;   // card of the set ticked last, for the "Tiếp" line
+let audioCtx = null, wakeLock = null, restAlerted = false;
+// Sound and vibration switch: a per-device convenience, on by default.
+const SOUND_KEY = "ban-do-co-bap.sound";
+let soundOn = true;
+try { soundOn = localStorage.getItem(SOUND_KEY) !== "0"; } catch (e) {}
+// Browsers refuse (and log) vibration before the first tap, e.g. a rest timer resumed after a reload.
+function buzz(pattern) { if (!soundOn) return; try { if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(pattern); } catch (e) {} }
+function paintSound() {
+  const b = $("w-sound"); if (!b) return;
+  b.setAttribute("aria-pressed", String(soundOn));
+  b.firstChild.firstChild.setAttribute("href", soundOn ? "#i-sound" : "#i-sound-off");
+  b.lastChild.textContent = "Âm thanh & rung: " + (soundOn ? "bật" : "tắt");
+}
+$("w-sound").onclick = () => { soundOn = !soundOn; try { localStorage.setItem(SOUND_KEY, soundOn ? "1" : "0"); } catch (e) {} paintSound(); if (soundOn) ensureAudio(); };
+paintSound();
+function paintMob() {
+  const on = programs.mobility !== false, b = $("w-mob");
+  b.setAttribute("aria-pressed", String(on));
+  b.lastChild.textContent = "Khởi động & giãn cơ: " + (on ? "bật" : "tắt");
+}
+$("w-mob").onclick = () => { programs.mobility = programs.mobility === false; savePrograms(); paintMob(); };
+paintMob();
+
+/* Flexibility check every two weeks: toe-touch gap and back-scratch gap per side (cm, lower = better) */
+const FLEX = [["toe", "Gập người"], ["shR", "Vai, tay phải trên"], ["shL", "Vai, tay trái trên"]];
+function renderFlex() {
+  const list = programs.flex || [], first = list[0], last = list[list.length - 1];
+  const due = !last || Date.now() - keyDate(last.date).getTime() >= 14 * 864e5;
+  const dueEl = $("flex-due");
+  dueEl.textContent = !last ? "Chưa đo lần nào" : due ? "Đến lúc đo lại" : "Đo lại từ " + fmtDate(dateKey(new Date(keyDate(last.date).getTime() + 14 * 864e5)));
+  dueEl.classList.toggle("due", due);
+  const parts = [];
+  for (const [k, label] of FLEX) {
+    const seq = list.filter(r => r[k] != null);
+    if (!seq.length) continue;
+    const a = seq[0][k], b = seq[seq.length - 1][k], d = a - b;
+    parts.push(seq.length < 2 ? label + ": " + fmtNum(b) + " cm"
+      : label + ": " + fmtNum(a) + " → " + fmtNum(b) + " cm" + (d > 0 ? " (tốt hơn " + fmtNum(d) + " cm)" : d < 0 ? " (kém " + fmtNum(-d) + " cm)" : ""));
+  }
+  $("ft-trend").textContent = !parts.length ? "Đo lần đầu để có mốc so sánh. Số càng nhỏ càng dẻo."
+    : (list.length > 1 ? "Từ " + fmtDate(first.date) + " tới " + fmtDate(last.date) + ": " : "Lần đo " + fmtDate(last.date) + ": ") + parts.join(" · ") + ".";
+}
+$("ft-save").onclick = () => {
+  const v = id => { const x = parseNum($(id).value); return x == null ? null : Math.max(-60, Math.min(100, x)); };
+  const r = { date: todayKey(), toe: v("ft-toe"), shR: v("ft-shR"), shL: v("ft-shL") };
+  if (r.toe == null && r.shR == null && r.shL == null) { $("ft-toe").focus(); return; }
+  const list = (programs.flex || []).filter(x => x.date !== r.date).concat([r]).sort((a, b) => a.date < b.date ? -1 : 1);
+  programs.flex = list.slice(-60);
+  savePrograms();
+  ["ft-toe", "ft-shR", "ft-shL"].forEach(i => { $(i).value = ""; });
+  renderFlex(); toast("Đã lưu lần đo độ dẻo.");
+};
+function ensureAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) { audioCtx = null; }
+}
+function beep() {
+  if (!audioCtx || !soundOn) return;
+  try {
+    const t0 = audioCtx.currentTime;
+    for (let k = 0; k < 3; k++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = t0 + k * 0.25;
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.2);
+    }
+  } catch (e) {}
+}
+// Two rising tones for a new personal record.
+function prSound() {
+  if (!audioCtx || !soundOn) return;
+  try {
+    const t0 = audioCtx.currentTime;
+    [660, 990].forEach((f, k) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = t0 + k * 0.13;
+      o.type = "triangle"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.22);
+    });
+  } catch (e) {}
+}
+// Short confetti burst from the ticked row (DOM particles, under 1 s; none with reduced motion).
+function celebrate(row) {
+  prSound(); buzz([40, 40, 90]);
+  if (reduceMotion || !row) return;
+  const tk = row.querySelector(".tick") || row, r = tk.getBoundingClientRect();
+  const box = document.createElement("div"); box.className = "confetti";
+  box.style.left = (r.left + r.width / 2) + "px"; box.style.top = (r.top + r.height / 2) + "px";
+  const cols = ["var(--accent)", "var(--ok)", "var(--warn)", "var(--c-push)", "var(--c-pull)"];
+  for (let k = 0; k < 20; k++) {
+    const i = document.createElement("i"), a = Math.PI * (1.05 + 0.9 * Math.random()), d = 50 + Math.random() * 80;
+    i.style.background = cols[k % cols.length];
+    i.style.setProperty("--dx", Math.round(Math.cos(a) * d) + "px");
+    i.style.setProperty("--dy", Math.round(Math.sin(a) * d + 30) + "px");
+    i.style.setProperty("--rot", Math.round(Math.random() * 540 - 270) + "deg");
+    box.appendChild(i);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 1000);
+}
+async function keepAwake() {
+  try {
+    if (active && !wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    }
+  } catch (e) { wakeLock = null; }
+}
+function releaseAwake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { keepAwake(); tickTimer(); } });
+
+function startRest(sec) { active.restTotal = sec; active.restEnd = Date.now() + sec * 1000; restAlerted = false; tickTimer(); }
+function paintNext() {
+  const b = $("t-next"), nx = nextSetText();
+  b.hidden = !nx;
+  if (nx) {
+    if ($("t-next-t").textContent !== nx.text) $("t-next-t").textContent = nx.text;
+    b.onclick = () => { const row = $("ex-" + nx.n.c) && $("ex-" + nx.n.c).querySelectorAll(".set")[nx.n.k]; if (row) row.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" }); };
+  }
+}
+function tickTimer() {
+  const el = $("timer");
+  if (!active || !active.restEnd) { el.hidden = true; document.body.classList.remove("has-timer"); return; }
+  const left = (active.restEnd - Date.now()) / 1000;
+  el.hidden = false; document.body.classList.add("has-timer");
+  if (left > 0) {
+    el.classList.remove("over");
+    $("t-label").textContent = "Nghỉ giữa hiệp";
+    $("t-time").textContent = fmtClock(Math.ceil(left));
+    paintNext();
+    $("t-prog").style.width = Math.min(100, 100 * (1 - left / (active.restTotal || 1))) + "%";
+  } else {
+    if (!restAlerted) { restAlerted = true; beep(); buzz([200, 100, 200]); }
+    el.classList.add("over");
+    $("t-label").textContent = "Hết giờ nghỉ · vào hiệp tiếp";
+    $("t-time").textContent = "+" + fmtClock(-left);
+    paintNext();
+    $("t-prog").style.width = "100%";
+    if (-left > 90) { active.restEnd = 0; saveActive(); tickTimer(); }
+  }
+}
+$("t-minus").onclick = () => { if (active && active.restEnd) { active.restEnd -= 15000; saveActive(); tickTimer(); } };
+$("t-plus").onclick = () => {
+  if (!active || !active.restEnd) return;
+  active.restEnd = Math.max(active.restEnd, Date.now()) + 15000; active.restTotal += 15; restAlerted = false;
+  saveActive(); tickTimer();
+};
+$("t-skip").onclick = () => { if (active) { active.restEnd = 0; saveActive(); tickTimer(); } };
+function updateClock() { if (active) $("w-clock").textContent = fmtClock((Date.now() - active.startedAt) / 1000); }
+setInterval(() => { if (active) { updateClock(); tickTimer(); } }, 250);
+
+/* Finish, save or discard */
+function doneOnly() {
+  return active.exercises
+    .map(e => ({ id: e.id, sets: e.sets.filter(s => s.done).map(s => ({ kg: s.kg || 0, reps: s.reps || 0 })) }))
+    .filter(e => e.sets.length);
+}
+function showSummary() {
+  loadModel();   // start fetching the 3D figure now so it is ready for the end-of-session moment
+  const ex = doneOnly();
+  const sets = ex.reduce((n, e) => n + e.sets.length, 0);
+  const vol = ex.reduce((n, e) => n + e.sets.reduce((m, x) => m + x.kg * x.reps, 0), 0);
+  $("sum-sets").textContent = sets;
+  $("sum-vol").textContent = fmtInt(vol);
+  $("sum-time").textContent = Math.max(1, Math.round((Date.now() - active.startedAt) / 60000));
+  const mus = $("sum-mus"); mus.textContent = "";
+  const groups = new Set(); ex.forEach(e => EX[e.id] && EX[e.id].p.forEach(g => groups.add(g)));
+  for (const g of ORDER) if (groups.has(g)) { const s = document.createElement("span"); s.className = "p"; s.textContent = MUSCLES[g].name; mus.appendChild(s); }
+  let prs = 0;
+  active.exercises.forEach((ae, idx) => ae.sets.forEach((st, i) => { if (st.done && recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i))) prs++; }));
+  $("sum-pr").textContent = "Kỷ lục mới trong buổi này: " + prs + " hiệp.";
+  $("sum-pr").hidden = !prs;
+  $("sum-save").disabled = !sets;
+  $("sum-note").hidden = !!sets;
+  $("w-summary").hidden = false;
+  $("w-summary").scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+}
+function endActive() { active = null; saveActive(true); releaseAwake(); tickTimer(); $("w-summary").hidden = true; renderActive(); window.scrollTo(0, 0); }
+$("w-finish").onclick = showSummary;
+$("sum-back").onclick = () => { $("w-summary").hidden = true; };
+$("sum-save").onclick = () => {
+  const ex = doneOnly();
+  if (!ex.length) return;
+  const sets = ex.reduce((n, e) => n + e.sets.length, 0);
+  const s = {
+    id: active.id, type: active.type, date: dateKey(new Date(active.startedAt)), startedAt: active.startedAt, endedAt: Date.now(),
+    exercises: ex,                                                     // completed sets only
+    plan: active.exercises.filter(e => EX[e.id] && !EX[e.id].mob).map(e => ({ id: e.id, n: e.full || e.sets.length })), // what the next session of this type starts from (warm-up/stretch blocks are added fresh)
+  };
+  let prs = 0;
+  active.exercises.forEach((ae, idx) => ae.sets.forEach((st, i) => { if (st.done && recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i))) prs++; }));
+  saveSession(s);
+  endActive(); refreshAll();
+  startCelebration(s, prs);
+};
+
+/* ---------- End-of-session moment ---------- */
+// After saving, the map opens on the 3D figure: everything else turns grey and the muscles just
+// trained light up one after another while the camera turns slowly, under a summary that counts up.
+function countUp(el, to, fmt) {
+  if (reduceMotion) { el.textContent = fmt(to); return; }
+  const t0 = performance.now(), dur = 900;
+  const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(to * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function startCelebration(s, prs) {
+  const groups = ORDER.filter(g => s.exercises.some(e => EX[e.id] && EX[e.id].p.includes(g)));
+  const sets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
+  const vol = s.exercises.reduce((n, e) => n + e.sets.reduce((m, x) => m + x.kg * x.reps, 0), 0);
+  exHL = null; focusOn = false;
+  setMode("anat");
+  showTab("map");
+  $("cel-title").textContent = "Xong buổi " + (DAYS[s.type] || DAYS.free).name + "!";
+  countUp($("cel-sets"), sets, n => String(Math.round(n)));
+  countUp($("cel-vol"), vol, n => fmtInt(n));
+  countUp($("cel-min"), Math.max(1, Math.round((s.endedAt - s.startedAt) / 60000)), n => String(Math.round(n)));
+  $("cel-pr").textContent = prs; $("cel-pr-box").hidden = !prs;
+  $("cel-mus").textContent = "Đã tập: " + groups.map(g => MUSCLES[g].name).join(", ") + ".";
+  $("cel-load").hidden = modelReady;
+  $("celebrate").hidden = false;
+  stage.classList.add("celebrating");
+  const back = groups.filter(g => BACK.has(g)).length * 2 > groups.length;
+  viewTo(back ? Math.PI : 0); setPressed(["v-front", "v-back"], back ? "v-back" : "v-front");
+  controls.autoRotate = !reduceMotion; controls.autoRotateSpeed = 0.7;
+  controls.target.y = 0.6;   // aim lower so the figure sits in the upper part, above the card
+  celebration = { groups, t0: null };
+  stage.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+  $("cel-done").focus({ preventScroll: true });
+}
+function animateCelebration(now) {
+  $("cel-load").hidden = modelReady;
+  if (!modelReady) return;
+  if (celebration.t0 == null) celebration.t0 = now;   // the show starts once the figure is on screen
+  const t = (now - celebration.t0) / 1000, dimK = reduceMotion ? 1 : Math.min(1, t / 0.6);
+  for (const g of ORDER) {
+    const m = mats[g], i = celebration.groups.indexOf(g);
+    if (i < 0) { m.userData.uFocus.value = -dimK; m.emissiveIntensity = 0; continue; }
+    const local = t - 0.5 - 0.3 * i;   // each trained group lights up 0.3 s after the previous one
+    const k = reduceMotion ? 1 : smoothstep(0, 0.7, local);
+    const pulse = reduceMotion ? 0 : 0.22 * Math.max(0, Math.sin(local * 2.4)) * k;
+    m.userData.uFocus.value = k; m.emissiveIntensity = 0.85 * k + pulse;
+  }
+  mats.other.userData.uFocus.value = -dimK;
+}
+function endCelebration(backToWorkout) {
+  if (!celebration) return;
+  celebration = null;
+  stage.classList.remove("celebrating");
+  $("celebrate").hidden = true;
+  controls.autoRotate = false; controls.autoRotateSpeed = 1.6; setPressed(["v-spin"], null);
+  controls.target.y = 0.92;
+  paint();
+  if (backToWorkout) { showTab("tap"); window.scrollTo(0, 0); }
+}
+$("cel-done").onclick = () => endCelebration(true);
+$("cel-map").onclick = () => endCelebration(false);
+armConfirm($("sum-discard"), "Bấm lần nữa để bỏ buổi này", () => { endActive(); toast("Đã bỏ buổi tập."); });
+
+/* Weekly sets per muscle group (workout tab) */
+function renderWeekVol() {
+  const { start, end } = weekOf(new Date()), ws = weekSets();
+  $("wv-range").textContent = fmtDate(dateKey(start)) + " – " + fmtDate(dateKey(end));
+  // fixed 0–24 scale so the 10–20 band stays put from week to week; it grows only past 24 sets
+  const max = Math.max(24, Math.ceil(Math.max(...Object.values(ws)) / 4) * 4);
+  const pct = v => Math.min(100, v / max * 100) + "%";
+  const box = $("wv"); box.textContent = "";
+  const ax = document.createElement("div"); ax.className = "wv-row wv-axis"; ax.setAttribute("aria-hidden", "true");
+  const at = document.createElement("div"); at.className = "wv-track";
+  for (const v of [0, 10, 20]) { const s = document.createElement("span"); s.textContent = v; s.style.left = pct(v); at.appendChild(s); }
+  const unit = document.createElement("span"); unit.textContent = "hiệp";
+  ax.append(document.createElement("span"), at, unit);
+  box.appendChild(ax);
+  const tally = { none: 0, warn: 0, ok: 0, hot: 0 };
+  for (const g of ORDER) {
+    const v = ws[g], st = volState(v); tally[st]++;
+    const row = document.createElement("div"); row.className = "wv-row";
+    const name = document.createElement("span"); name.textContent = MUSCLES[g].name; name.title = MUSCLES[g].name;
+    const tr = document.createElement("div"); tr.className = "wv-track";
+    const band = document.createElement("i"); band.className = "wv-band"; band.style.left = pct(10); band.style.width = (10 / max * 100) + "%";
+    tr.appendChild(band);
+    if (v > 0) { const f = document.createElement("i"); f.className = "wv-fill " + st; f.style.width = pct(v); tr.appendChild(f); }
+    const val = document.createElement("b"); val.textContent = fmtNum(v); if (!v) val.className = "zero";
+    row.append(name, tr, val);
+    box.appendChild(row);
+  }
+  $("wv-sum").textContent = "Trong khoảng 10–20 hiệp: " + tally.ok + " nhóm · dưới 10: " + tally.warn
+    + " · trên 20: " + tally.hot + " · chưa tập: " + tally.none + ". Cơ chính tính 1 hiệp, cơ phụ tính 0,5.";
+}
+
+/* Month calendar */
+const WEEKDAY_LONG = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+let calMonth = null, calSel = null;   // "YYYY-MM" shown, "YYYY-MM-DD" tapped
+function firstDataMonth() {
+  let min = null;
+  for (const s of Object.values(sessions)) if (!min || s.date < min) min = s.date;
+  for (const k in manualDays) if ((manualDays[k] || []).length && (!min || k < min)) min = k;
+  return min ? min.slice(0, 7) : null;
+}
+function shiftMonth(n) {
+  const [y, m] = calMonth.split("-").map(Number), d = new Date(y, m - 1 + n, 1);
+  calMonth = d.getFullYear() + "-" + pad(d.getMonth() + 1); calSel = null;
+  renderCalendar();
+}
+$("cal-prev").onclick = () => shiftMonth(-1);
+$("cal-next").onclick = () => shiftMonth(1);
+function renderCalendar() {
+  const thisMonth = todayKey().slice(0, 7), today = todayKey();
+  if (!calMonth) calMonth = thisMonth;
+  const [y, m] = calMonth.split("-").map(Number);
+  $("cal-title").textContent = "Tháng " + m + "/" + y;
+  $("cal-prev").disabled = calMonth <= (firstDataMonth() || thisMonth);
+  $("cal-next").disabled = calMonth >= thisMonth;
+  const days = {};
+  const slot = k => days[k] || (days[k] = { list: [], manual: [] });
+  for (const s of sortedSessions().reverse()) if (s.date.startsWith(calMonth)) slot(s.date).list.push(s);
+  for (const k in manualDays) if (k.startsWith(calMonth) && (manualDays[k] || []).length) slot(k).manual = manualDays[k];
+  const grid = $("cal"); grid.textContent = "";
+  for (const w of ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]) { const h = document.createElement("span"); h.className = "wd"; h.textContent = w; grid.appendChild(h); }
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7, count = new Date(y, m, 0).getDate();
+  for (let i = 0; i < lead; i++) grid.appendChild(document.createElement("span"));
+  const counts = { push: 0, pull: 0, legs: 0, free: 0 };
+  let manualOnly = 0;
+  for (let d = 1; d <= count; d++) {
+    const k = calMonth + "-" + pad(d), info = days[k];
+    const types = info ? [...new Set(info.list.map(s => DAYS[s.type] ? s.type : "free"))] : [];
+    let cell;
+    if (info) {
+      cell = mkBtn("cd has " + (types[0] || "manual"), "", () => { calSel = calSel === k ? null : k; renderCalendar(); });
+      cell.setAttribute("aria-pressed", String(calSel === k));
+      cell.setAttribute("aria-label", WEEKDAY_LONG[keyDate(k).getDay()] + " " + d + "/" + m + ": "
+        + (types.length ? types.map(t => DAYS[t].name).join(", ") : "đánh dấu tay"));
+      info.list.forEach(s => { counts[DAYS[s.type] ? s.type : "free"]++; });
+      if (!types.length) manualOnly++;
+    } else { cell = document.createElement("span"); cell.className = "cd"; }
+    if (k > today) cell.classList.add("future");
+    if (k === today) cell.classList.add("today");
+    const n = document.createElement("span"); n.textContent = d; cell.appendChild(n);
+    for (const t of types.slice(0, 2)) { const ty = document.createElement("span"); ty.className = "ty"; ty.textContent = DAYS[t].name; cell.appendChild(ty); }
+    if (info && !types.length) { const dot = document.createElement("span"); dot.className = "dot"; cell.appendChild(dot); }
+    grid.appendChild(cell);
+  }
+  // Key doubles as the month's tally
+  const key = $("cal-key"); key.textContent = "";
+  const total = counts.push + counts.pull + counts.legs + counts.free;
+  const item = (cls, color, label) => {
+    const s = document.createElement("span"), i = document.createElement("i");
+    if (cls) i.className = cls; if (color) i.style.setProperty("--c", color);
+    s.append(i, label); key.appendChild(s);
+  };
+  if (!total && !manualOnly) { const s = document.createElement("span"); s.textContent = "Chưa có buổi nào trong tháng này."; key.appendChild(s); }
+  else {
+    const s = document.createElement("span"); s.textContent = total + " buổi:"; key.appendChild(s);
+    for (const t of CYCLE) item("", "var(--c-" + t + ")", DAYS[t].name + " " + counts[t]);
+    if (counts.free) item("", "var(--muted)", DAYS.free.name + " " + counts.free);
+    if (manualOnly) item("manual", "", "Đánh dấu tay " + manualOnly);
+  }
+  // Details of the tapped day
+  const box = $("cal-day"), info = calSel && days[calSel];
+  box.textContent = ""; box.hidden = !info;
+  if (!info) return;
+  const dt = keyDate(calSel), h = document.createElement("p"), hb = document.createElement("b");
+  hb.textContent = WEEKDAY_LONG[dt.getDay()] + ", " + pad(dt.getDate()) + "/" + pad(dt.getMonth() + 1) + "/" + dt.getFullYear();
+  h.appendChild(hb); box.appendChild(h);
+  for (const s of info.list) {
+    const p = document.createElement("p"), b = document.createElement("b");
+    b.textContent = (DAYS[s.type] || DAYS.free).name;
+    p.append(b, " · " + sessionLine(s));
+    box.append(p, exerciseList(s.exercises || []));
+  }
+  if (info.manual.length) {
+    const p = document.createElement("p"); p.className = "meta";
+    p.textContent = "Đánh dấu tay: " + ORDER.filter(g => info.manual.includes(g)).map(g => MUSCLES[g].name).join(", ") + ".";
+    box.appendChild(p);
+  }
+}
+
+/* Exercise progress sheet */
+const METRICS = {
+  e1rm:  { label: "1RM ước tính", col: "1RM ƯT", unit: "kg", get: r => r.e1rm, fmt: v => fmtNum(round1(v)) },
+  top:   { label: "Tạ nặng nhất", col: "Nặng nhất", unit: "kg", get: r => r.top.kg, fmt: v => fmtNum(v) },
+  vol:   { label: "Khối lượng", col: "Khối lượng", unit: "kg", get: r => r.vol, fmt: v => fmtInt(v) },
+  reps:  { label: "Lần nhiều nhất", col: "Lần nhiều nhất", unit: "lần", get: r => r.maxReps, fmt: v => String(Math.round(v)) },
+  added: { label: "Tạ đeo thêm", col: "Tạ đeo", unit: "kg", get: r => r.top.kg, fmt: v => fmtNum(v) },
+  total: { label: "Tổng số lần", col: "Tổng lần", unit: "lần", get: r => r.totalReps, fmt: v => String(Math.round(v)) },
+};
+// Bodyweight exercises are tracked by reps and added load (body weight is not logged yet).
+const metricsFor = X => X.bw ? ["reps", "added", "total"] : ["e1rm", "top", "vol"];
+let pg = null;   // { id, metric, opener } while the sheet is open
+function progressRows(exId) {
+  return exerciseHistory(exId).map(h => Object.assign({}, h, {
+    top: h.sets.reduce((b, x) => x.kg > b.kg || (x.kg === b.kg && x.reps > b.reps) ? x : b, h.sets[0]),
+    e1rm: Math.max(...h.sets.map(x => e1rm(x.kg, x.reps))),
+    vol: h.sets.reduce((n, x) => n + x.kg * x.reps, 0),
+    maxReps: Math.max(...h.sets.map(x => x.reps)),
+    totalReps: h.sets.reduce((n, x) => n + x.reps, 0),
+  }));
+}
+function openProgress(exId) {
+  if (!EX[exId]) return;
+  pg = { id: exId, metric: metricsFor(EX[exId])[0], opener: document.activeElement };
+  $("prog").hidden = false; $("prog").scrollTop = 0;
+  document.documentElement.classList.add("sheet-open");
+  renderProgress();
+  $("pg-close").focus({ preventScroll: true });
+}
+function closeProgress() {
+  if (!pg) return;
+  const back = pg.opener; pg = null;
+  $("prog").hidden = true;
+  document.documentElement.classList.remove("sheet-open");
+  if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+}
+$("pg-close").onclick = closeProgress;
+document.addEventListener("keydown", ev => { if (ev.key === "Escape" && pg) closeProgress(); });
+function renderProgress() {
+  if (!pg) return;
+  const X = EX[pg.id], rows = progressRows(pg.id), M = METRICS[pg.metric];
+  $("pg-title").textContent = X.name;
+  $("pg-vi").textContent = X.vi;
+  const stats = $("pg-stats"); stats.textContent = ""; stats.hidden = !rows.length;
+  const seg = $("pg-metrics"); seg.textContent = ""; seg.hidden = !rows.length;
+  $("pg-list-card").hidden = !rows.length;
+  drawProgressChart(rows, M);
+  if (!rows.length) {
+    $("pg-note").textContent = "Chưa có buổi nào có bài này. Đánh dấu ✓ các hiệp rồi lưu buổi tập, tiến độ sẽ hiện ở đây.";
+    return;
+  }
+  const tile = (v, label) => {
+    const d = document.createElement("div"), b = document.createElement("b"), s = document.createElement("small");
+    b.textContent = v; s.textContent = label; d.append(b, s); stats.appendChild(d);
+  };
+  const heaviest = rows.reduce((b, r) => r.top.kg > b.top.kg || (r.top.kg === b.top.kg && r.top.reps > b.top.reps) ? r : b);
+  if (X.bw) {
+    tile(String(Math.max(...rows.map(r => r.maxReps))), "lần nhiều nhất trong một hiệp");
+    tile(heaviest.top.kg ? "+" + fmtNum(heaviest.top.kg) + "×" + heaviest.top.reps : "0", "kg đeo thêm × lần, nặng nhất");
+  } else {
+    tile(fmtNum(round1(Math.max(...rows.map(r => r.e1rm)))), "kg, 1RM ước tính cao nhất");
+    tile(fmtNum(heaviest.top.kg) + "×" + heaviest.top.reps, "kg × lần, hiệp nặng nhất");
+  }
+  tile(String(rows.length), "buổi đã tập");
+  for (const k of metricsFor(X)) {
+    const b = mkBtn("", METRICS[k].label, () => { pg.metric = k; renderProgress(); });
+    b.setAttribute("aria-pressed", String(k === pg.metric));
+    seg.appendChild(b);
+  }
+  const first = rows[0], last = rows[rows.length - 1], v0 = M.get(first), v1 = M.get(last);
+  let note;
+  if (rows.length < 2) note = "Mới có 1 buổi (" + fmtDate(first.date) + "). Tập thêm buổi nữa để thấy xu hướng.";
+  else {
+    const dv = v1 - v0, pct = v0 > 0 ? " (" + (dv >= 0 ? "+" : "−") + Math.abs(Math.round(dv / v0 * 100)) + "%)" : "";
+    note = M.label + " buổi gần nhất so với buổi đầu (" + fmtDate(first.date) + "): "
+      + (dv > 0 ? "+" : dv < 0 ? "−" : "±") + M.fmt(Math.abs(dv)) + " " + M.unit + pct + ".";
+  }
+  if (pg.metric === "e1rm") note += " 1RM ước tính theo công thức Epley, kg × (1 + lần/30), lấy hiệp tốt nhất mỗi buổi.";
+  $("pg-note").textContent = note;
+  $("pg-col").textContent = M.col;
+  const tb = $("pg-rows"); tb.textContent = "";
+  for (const r of rows.slice().reverse()) {
+    const tr = document.createElement("tr");
+    const a = document.createElement("td"); a.textContent = fmtDate(r.date);
+    const b = document.createElement("td"); b.className = "kg"; b.textContent = fmtSets(r.sets, X);
+    const c = document.createElement("td"); c.className = "sr"; c.textContent = M.fmt(M.get(r));
+    tr.append(a, b, c); tb.appendChild(tr);
+  }
+}
+// Round tick step: 1, 2, 2.5 or 5 times a power of ten.
+function niceStep(raw, whole) {
+  if (!(raw > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const s = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  return whole ? Math.max(1, Math.ceil(s)) : s;
+}
+// Line chart over time, drawn as inline SVG at the box's own pixel width.
+let pgWidth = 0;
+function drawProgressChart(rows, M) {
+  const box = $("pg-chart");
+  box.textContent = ""; box.hidden = !rows.length; pgWidth = box.clientWidth;
+  if (!rows.length) return;
+  const W = Math.max(240, pgWidth || 320), H = 220;
+  const vals = rows.map(r => M.get(r));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi - lo < 1e-9) { const d = Math.max(1, Math.abs(hi) * 0.1); lo -= d; hi += d; }
+  const step = niceStep((hi - lo) / 4, M.unit === "lần");
+  lo = Math.max(0, Math.floor(lo / step + 1e-9) * step); hi = Math.ceil(hi / step - 1e-9) * step;
+  if (hi <= lo) hi = lo + step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Math.round(v * 1000) / 1000);
+  const fy = v => M.unit === "lần" ? String(Math.round(v)) : Number.isInteger(step) ? fmtInt(v) : fmtNum(v);
+  const L = Math.max(...ticks.map(t => fy(t).length)) * 7 + 12, R = 14, T = 24, B = 24;
+  const t0 = rows[0].t, t1 = rows[rows.length - 1].t, span = t1 - t0;
+  const x = t => span > 0 ? L + (t - t0) / span * (W - L - R) : L + (W - L - R) / 2;
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const pts = rows.map((r, i) => ({ r, v: vals[i], cx: x(r.t), cy: y(vals[i]) }));
+  let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img">';
+  for (const t of ticks) {
+    const yy = y(t).toFixed(1);
+    s += '<line class="grid-l" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/>';
+    s += '<text x="' + (L - 8) + '" y="' + (+yy + 4) + '" text-anchor="end">' + fy(t) + "</text>";
+  }
+  // Date labels: first and last session, plus evenly spaced days between when there is room
+  const dm = t => { const d = new Date(t); return pad(d.getDate()) + "/" + pad(d.getMonth() + 1); };
+  const nDays = Math.round(span / 864e5);
+  const nx = nDays < 1 ? 1 : Math.max(2, Math.min(4, Math.floor((W - L - R) / 80) + 1, nDays + 1));
+  for (let j = 0; j < nx; j++) {
+    const t = nx === 1 ? t0 : t0 + span * j / (nx - 1);
+    const anchor = nx === 1 ? (span > 0 ? "start" : "middle") : j === 0 ? "start" : j === nx - 1 ? "end" : "middle";
+    s += '<text x="' + x(t).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="' + anchor + '">' + dm(t) + "</text>";
+  }
+  if (pts.length > 1) {
+    const line = pts.map(p => p.cx.toFixed(1) + "," + p.cy.toFixed(1)).join(" ");
+    s += '<path class="area" d="M' + line.replace(/ /g, " L") + " L" + pts[pts.length - 1].cx.toFixed(1) + "," + (H - B) + " L" + pts[0].cx.toFixed(1) + "," + (H - B) + 'Z"/>';
+    s += '<polyline class="line" points="' + line + '"/>';
+  }
+  s += '<line class="guide" y1="' + T + '" y2="' + (H - B) + '" visibility="hidden"/>';
+  pts.forEach((p, i) => {
+    const lastPt = i === pts.length - 1;
+    if (pts.length <= 40 || lastPt) s += '<circle class="pt" cx="' + p.cx.toFixed(1) + '" cy="' + p.cy.toFixed(1) + '" r="' + (lastPt ? 5 : 4) + '"/>';
+  });
+  const lp = pts[pts.length - 1];
+  const above = lp.cy - 12 > 12;
+  s += '<text class="end" x="' + lp.cx.toFixed(1) + '" y="' + (above ? lp.cy - 12 : lp.cy + 22).toFixed(1) + '" text-anchor="' + (lp.cx > W - 40 ? "end" : "middle") + '">' + M.fmt(lp.v) + "</text>";
+  s += '<circle class="pt on" r="6" visibility="hidden"/>';
+  s += '<rect class="hit" x="' + L + '" y="0" width="' + (W - L - R) + '" height="' + H + '"/></svg>';
+  box.innerHTML = s;
+  const svg = box.firstChild, guide = svg.querySelector(".guide"), hov = svg.querySelector(".pt.on");
+  svg.setAttribute("aria-label", M.label + " của " + EX[pg.id].name + " qua " + rows.length + " buổi, từ "
+    + M.fmt(vals[0]) + " đến " + M.fmt(lp.v) + " " + M.unit + ". Số liệu từng buổi có trong bảng bên dưới.");
+  const tipEl = document.createElement("div"); tipEl.className = "c-tip"; tipEl.hidden = true; box.appendChild(tipEl);
+  const show = ev => {
+    const rect = svg.getBoundingClientRect(), px = (ev.clientX - rect.left) * W / rect.width;
+    let p = pts[0];
+    for (const q of pts) if (Math.abs(q.cx - px) < Math.abs(p.cx - px)) p = q;
+    for (const [a, v] of [["x1", p.cx], ["x2", p.cx]]) guide.setAttribute(a, v);
+    guide.setAttribute("visibility", "visible");
+    hov.setAttribute("cx", p.cx); hov.setAttribute("cy", p.cy); hov.setAttribute("visibility", "visible");
+    tipEl.textContent = "";
+    const v = document.createElement("b"); v.textContent = M.fmt(p.v) + " " + M.unit;
+    const top = p.r.top, bw = EX[pg.id].bw, extra = document.createElement("div");
+    extra.textContent = bw && !top.kg ? "Hiệp tốt nhất " + p.r.maxReps + " lần"
+      : "Hiệp nặng nhất " + (bw ? "+" : "") + fmtNum(top.kg) + " × " + top.reps;
+    tipEl.append(v, " · " + fmtDate(p.r.date), extra);
+    tipEl.hidden = false;
+    const k = rect.width / W, half = tipEl.offsetWidth / 2, th = tipEl.offsetHeight;
+    tipEl.style.left = Math.min(Math.max(p.cx * k, half), rect.width - half) + "px";
+    // above the point when there is room, otherwise below it
+    tipEl.style.top = (p.cy * k - th - 12 >= 0 ? p.cy * k - th - 12 : p.cy * k + 14) + "px";
+  };
+  const hide = () => { tipEl.hidden = true; guide.setAttribute("visibility", "hidden"); hov.setAttribute("visibility", "hidden"); };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
+  svg.addEventListener("pointerleave", ev => { if (ev.pointerType === "mouse") hide(); });
+}
+new ResizeObserver(() => { if (pg && $("pg-chart").clientWidth !== pgWidth) drawProgressChart(progressRows(pg.id), METRICS[pg.metric]); }).observe($("pg-chart"));
+
+/* Tabs and the link to the 3D map */
+const views = { tap: $("view-tap"), map: $("view-map") };
+const TAB_KEY = "ban-do-co-bap.tab";
+function showTab(t) {
+  for (const k in views) {
+    views[k].hidden = k !== t;
+    const tb = $("tab-" + k);
+    tb.setAttribute("aria-selected", String(k === t)); tb.tabIndex = k === t ? 0 : -1;
+  }
+  mapVisible = t === "map";
+  if (mapVisible) { loadModel(); resize(); refreshAll(); }   // sets ticked meanwhile change the weekly colors
+  try { localStorage.setItem(TAB_KEY, t); } catch (e) {}
+}
+$("tab-tap").onclick = () => showTab("tap");
+$("tab-map").onclick = () => showTab("map");
+$("tab-tap").parentElement.addEventListener("keydown", ev => {
+  if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+  const t = mapVisible ? "tap" : "map"; showTab(t); $("tab-" + t).focus();
+});
+function showExerciseOnMap(id) {
+  const e = EX[id];
+  if (!e) return;
+  showTab("map");
+  select(e.p[0]);
+  exHL = { p: new Set(e.p), s: new Set(e.s) };
+  showGroups(e.p);
+  paint();
+  flashHint(e.name + ": cơ chính sáng đậm, cơ phụ sáng nhạt.");
+  stage.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+}
+
+/* ---------- Start-up ---------- */
+refreshAll();
+renderActive();
+tickTimer();
+if (active) keepAwake();
+let savedTab = null;
+try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) {}
+const hashTab = location.hash === "#ban-do" ? "map" : location.hash === "#buoi-tap" ? "tap" : null;
+const phone = window.matchMedia && matchMedia("(max-width: 860px)").matches;
+showTab(hashTab || (active ? "tap" : savedTab || (phone ? "tap" : "map")));
+connectStore();
+setupBackup();
+})();
+</script>
+
+<!-- v2: exercise images -->
+
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=8914175cc6"));</script>
+</body>
+</html>
