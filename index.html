@@ -307,6 +307,18 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
 .sheet .sum b { font-size: 17px; }
 .seg.full { display: flex; width: 100%; }
 .seg.full button { flex: 1; padding: 9px 6px; }
+.seg.full.wrap { flex-wrap: wrap; border-radius: var(--r-md); }
+.seg.full.wrap button { flex: 1 1 30%; border-radius: var(--r-sm); }
+.cdays { display: grid; gap: var(--s2); margin-top: var(--s2); }
+.cday { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; text-align: left; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: var(--r-md); padding: 12px 14px; cursor: pointer; min-height: 56px; }
+.cday .ico { grid-row: span 2; color: var(--accent); }
+.cday b { font: 700 20px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cday small { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cday:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cnew { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.cnew input, .cname input { flex: 1 1 200px; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--ink); font: 500 16px/1 var(--font-body); padding: 0 12px; }
+.cname { display: grid; gap: 4px; margin-top: var(--s3); }
+.cname span { font-size: 12px; color: var(--muted); }
 .chart { position: relative; margin-top: 12px; min-height: 220px; }
 .chart svg { display: block; width: 100%; height: 220px; overflow: visible; touch-action: pan-y; }
 .chart text { fill: var(--muted); font: 500 11px var(--font-data); font-variant-numeric: tabular-nums; }
@@ -502,6 +514,12 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
       <div class="card">
         <p class="label">Bắt đầu buổi tập</p>
         <div class="ppl" id="ppl-buttons"></div>
+        <div class="cdays" id="custom-days"></div>
+        <form class="cnew" id="cnew" hidden>
+          <input id="cnew-name" type="text" maxlength="40" autocomplete="off" placeholder="Tên buổi, ví dụ: Mông & đùi trong" aria-label="Tên buổi tập riêng">
+          <button class="b b-primary b-md" type="submit">Tạo</button>
+          <button class="b b-ghost b-md" type="button" id="cnew-cancel">Hủy</button>
+        </form>
         <div class="start-links">
           <button class="b b-ghost b-md" id="w-free" type="button"><svg class="ico" aria-hidden="true"><use href="#i-play"/></svg><span>Buổi tự do: tự chọn bài</span></button>
           <button class="b b-ghost b-md" id="w-prog-open" type="button"><svg class="ico" aria-hidden="true"><use href="#i-edit"/></svg><span>Giáo án: sửa bài từng ngày</span></button>
@@ -886,6 +904,21 @@ const DAYS = {
   free: { name: "Tự do", vi: "Tự chọn bài", plan: [] },
 };
 const CYCLE = ["push", "pull", "legs"];
+// Custom workouts the user names and fills (programs.custom = [{ id: "c-…", name }]; their exercise
+// list lives in programs.days[id] like the PPL days). dayOf() names any session type, including a
+// custom one that was deleted later (saved sessions keep their own name).
+const customDays = () => (programs.custom || []);
+function customVi(id) {
+  const g = [];
+  for (const x of programs.days[id] || []) { const e = EX[x.id]; if (e && !e.mob) for (const m of e.p) if (!g.includes(m)) g.push(m); }
+  return g.length ? g.slice(0, 3).map(m => MUSCLES[m].short).join(" · ") : "Chưa có bài";
+}
+function dayOf(type, s) {
+  if (DAYS[type]) return DAYS[type];
+  const c = customDays().find(x => x.id === type);
+  if (c) return { name: c.name, vi: customVi(c.id), plan: [], custom: true };
+  return { name: (s && s.name) || DAYS.free.name, vi: "", plan: [], custom: true };
+}
 
 /* ---------- Training data store ---------- */
 // manualDays: muscle groups ticked by hand on the map ({date: [group]}). sessions: saved workouts.
@@ -1892,12 +1925,27 @@ function renderProgEditor() {
   const hb = document.createElement("div"); const hbb = document.createElement("b"); hbb.textContent = "Giáo án"; hb.appendChild(hbb);
   head.append(hb, mkBtn("b b-primary b-sm", "Xong", closeProg, "check"));
   const card = document.createElement("div"); card.className = "card";
-  const seg = document.createElement("div"); seg.className = "seg full"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Chọn ngày");
-  for (const t of CYCLE) { const b = mkBtn("", DAYS[t].name, () => { progDay = t; swapIdx = -1; renderProgEditor(); }); b.setAttribute("aria-pressed", String(t === progDay)); seg.appendChild(b); }
+  if (!DAYS[progDay] && !customDays().some(c => c.id === progDay)) progDay = "push";
+  const seg = document.createElement("div"); seg.className = "seg full" + (customDays().length ? " wrap" : ""); seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Chọn buổi");
+  for (const t of CYCLE.concat(customDays().map(c => c.id))) { const b = mkBtn("", dayOf(t).name, () => { progDay = t; swapIdx = -1; renderProgEditor(); }); b.setAttribute("aria-pressed", String(t === progDay)); seg.appendChild(b); }
   card.appendChild(seg);
+  const isCustom = !DAYS[progDay];
+  if (isCustom) {
+    const nm = document.createElement("label"); nm.className = "cname";
+    const sp = document.createElement("span"); sp.textContent = "Tên buổi";
+    const inp = document.createElement("input"); inp.type = "text"; inp.maxLength = 40; inp.value = dayOf(progDay).name; inp.setAttribute("aria-label", "Tên buổi tập");
+    inp.onchange = () => { const v = inp.value.trim(); const c = customDays().find(x => x.id === progDay); if (c && v) {
+      c.name = v.slice(0, 40); savePrograms();
+      // past sessions of this workout carry the new name too (it is what history shows if the workout is deleted)
+      for (const ss of Object.values(sessions)) if (ss.type === c.id && ss.name !== c.name) saveSession(Object.assign({}, ss, { name: c.name }));
+      renderProgEditor();
+    } };
+    nm.append(sp, inp); card.appendChild(nm);
+  }
   const plan = basePlan(progDay), have = new Set(plan.map(x => x.id));
   const info = document.createElement("p"); info.className = "meta";
-  info.textContent = (programs.days[progDay] ? "Giáo án đã lưu cho " + DAYS[progDay].name + "." : "Chưa chỉnh: đang dùng " + (sortedSessions().some(s => s.type === progDay) ? "bài của buổi trước." : "bài mặc định."))
+  info.textContent = (isCustom ? "Buổi tập riêng: bấm tên ở màn hình bắt đầu để tập."
+    : programs.days[progDay] ? "Giáo án đã lưu cho " + DAYS[progDay].name + "." : "Chưa chỉnh: đang dùng " + (sortedSessions().some(s => s.type === progDay) ? "bài của buổi trước." : "bài mặc định."))
     + " Bài khởi động luôn xếp đầu buổi, bài giãn cơ xếp cuối.";
   card.appendChild(info);
   plan.forEach((x, i) => {
@@ -1934,9 +1982,14 @@ function renderProgEditor() {
   if (!plan.length) { const em = document.createElement("p"); em.className = "empty"; em.textContent = "Ngày này chưa có bài nào."; card.appendChild(em); }
   const row = document.createElement("div"); row.className = "btn-row";
   const addTo = filter => () => openPicker(filter, id => { $("w-picker").hidden = true; pickCb = null; progEdit(p => { p.push({ id, n: EX[id].sets }); }); }, have);
-  row.append(mkBtn("b b-secondary b-md", "Thêm bài", addTo(progDay), "plus"), mkBtn("b b-secondary b-md", "Thêm khởi động / giãn cơ", addTo("mob"), "leaf"));
-  const rs = mkBtn("b b-danger b-md", "Khôi phục mặc định");
-  armConfirm(rs, "Bấm lần nữa để khôi phục", () => { programs.days[progDay] = DAYS[progDay].plan.map(id => ({ id, n: EX[id].sets })); swapIdx = -1; savePrograms(); renderProgEditor(); toast("Đã khôi phục giáo án " + DAYS[progDay].name + " mặc định."); });
+  row.append(mkBtn("b b-secondary b-md", "Thêm bài", addTo(CYCLE.includes(progDay) ? progDay : "all"), "plus"), mkBtn("b b-secondary b-md", "Thêm khởi động / giãn cơ", addTo("mob"), "leaf"));
+  const rs = mkBtn("b b-danger b-md", isCustom ? "Xóa buổi này" : "Khôi phục mặc định");
+  if (isCustom) armConfirm(rs, "Bấm lần nữa để xóa buổi", () => {
+    const name = dayOf(progDay).name;
+    programs.custom = customDays().filter(c => c.id !== progDay); delete programs.days[progDay];
+    progDay = "push"; swapIdx = -1; savePrograms(); renderProgEditor(); toast("Đã xóa buổi " + name + ". Lịch sử các buổi đã tập vẫn giữ.");
+  });
+  else armConfirm(rs, "Bấm lần nữa để khôi phục", () => { programs.days[progDay] = DAYS[progDay].plan.map(id => ({ id, n: EX[id].sets })); swapIdx = -1; savePrograms(); renderProgEditor(); toast("Đã khôi phục giáo án " + DAYS[progDay].name + " mặc định."); });
   row.appendChild(rs);
   card.appendChild(row);
   box.append(head, card);
@@ -1963,10 +2016,37 @@ function renderIdle() {
     if (last) { const when = document.createElement("small"); when.textContent = "Lần trước " + fmtDate(last.date); b.appendChild(when); }
     box.appendChild(b);
   }
+  renderCustomDays();
   renderWeekVol();
   renderCalendar();
   renderHistory();
 }
+function renderCustomDays() {
+  const box = $("custom-days"); box.textContent = "";
+  for (const c of customDays()) {
+    const b = mkBtn("cday", "", () => startSession(c.id));
+    const name = document.createElement("b"); name.textContent = c.name;
+    const mus = document.createElement("small"); mus.textContent = customVi(c.id);
+    const last = sortedSessions().find(s => s.type === c.id);
+    if (last) mus.textContent += " · lần trước " + fmtDate(last.date);
+    b.append(ico("play"), name, mus);
+    box.appendChild(b);
+  }
+  box.appendChild(mkBtn("b b-secondary b-md b-block", "Tạo buổi tập riêng", () => { $("cnew").hidden = false; $("cnew-name").value = ""; $("cnew-name").focus(); }, "plus"));
+}
+$("cnew").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const name = $("cnew-name").value.trim().slice(0, 40);
+  if (!name) { $("cnew-name").focus(); return; }
+  const id = "c-" + Date.now().toString(36);
+  programs.custom = customDays().concat([{ id, name }]);
+  programs.days[id] = [];
+  savePrograms();
+  $("cnew").hidden = true;
+  progDay = id; openProg();
+  toast("Đã tạo buổi " + name + ". Thêm bài cho buổi này.");
+});
+$("cnew-cancel").onclick = () => { $("cnew").hidden = true; };
 // "18 hiệp · 4.320 kg · 62 phút"
 function sessionLine(s) {
   const ex = s.exercises || [];
@@ -1998,7 +2078,7 @@ function renderHistory() {
   for (const s of list.slice(0, histLimit)) {
     const d = document.createElement("details");
     const sum = document.createElement("summary");
-    const a = document.createElement("b"); a.textContent = fmtDate(s.date) + " · " + (DAYS[s.type] || DAYS.free).name;
+    const a = document.createElement("b"); a.textContent = fmtDate(s.date) + " · " + dayOf(s.type, s).name;
     const b = document.createElement("span"); b.textContent = sessionLine(s);
     sum.append(a, b); d.appendChild(sum);
     d.appendChild(exerciseList(s.exercises || []));
@@ -2019,7 +2099,7 @@ function basePlan(type) {
   if (saved && saved.length) return saved.filter(x => EX[x.id]).map(x => ({ id: x.id, n: x.n }));
   const prev = sortedSessions().find(s => s.type === type);
   if (prev) return (prev.plan || prev.exercises.map(e => ({ id: e.id, n: e.sets.length }))).filter(x => EX[x.id]).map(x => ({ id: x.id, n: x.n }));
-  return DAYS[type].plan.map(id => ({ id, n: EX[id].sets }));
+  return (DAYS[type] ? DAYS[type].plan : []).map(id => ({ id, n: EX[id].sets }));
 }
 const deloadOn = () => !!programs.deloadStart && Date.now() < programs.deloadStart + 7 * 864e5;
 function startSession(type) {
@@ -2032,13 +2112,13 @@ function startSession(type) {
   active = { id: newId(), type, startedAt: Date.now(), restEnd: 0, restTotal: 0, exercises };
   saveActive(true); ensureAudio(); keepAwake();
   renderActive(); window.scrollTo(0, 0);
-  if (type === "free") openPicker();
+  if (!exercises.length) openPicker(CYCLE.includes(type) ? type : "all");   // empty free or custom workout
 }
 function renderActive() {
   renderIdle();
   renderDetail();
   if (!active) { if (!editingProg) $("w-picker").hidden = true; $("w-summary").hidden = true; return; }
-  $("w-title").textContent = (DAYS[active.type] || DAYS.free).name;
+  $("w-title").textContent = dayOf(active.type).name;
   const list = $("w-list");
   list.textContent = "";
   active.exercises.forEach((ae, idx) => { if (EX[ae.id]) list.appendChild(exerciseCard(ae, idx)); });
@@ -2299,7 +2379,7 @@ function addExercise(id, fromMap) {
   saveActive();
   $("w-picker").hidden = true;
   renderActive();
-  if (fromMap) { toast("Đã thêm " + EX[id].name + " vào buổi " + (DAYS[active.type] || DAYS.free).name + "."); return; }
+  if (fromMap) { toast("Đã thêm " + EX[id].name + " vào buổi " + dayOf(active.type).name + "."); return; }
   const card = $("ex-" + (active.exercises.length - 1));
   if (card) card.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
 }
@@ -2497,6 +2577,7 @@ $("sum-save").onclick = () => {
   const sets = ex.reduce((n, e) => n + e.sets.length, 0);
   const s = {
     id: active.id, type: active.type, date: dateKey(new Date(active.startedAt)), startedAt: active.startedAt, endedAt: Date.now(),
+    ...(DAYS[active.type] ? {} : { name: dayOf(active.type).name }),   // custom workouts keep their name even if deleted later
     exercises: ex,                                                     // completed sets only
     plan: active.exercises.filter(e => EX[e.id]).map(e => ({ id: e.id, n: e.full || e.sets.length })), // what the next session of this type starts from, warm-ups and stretches included
   };
@@ -2523,7 +2604,7 @@ function startCelebration(s, prs) {
   exHL = null; focusOn = false;
   setMode("anat");
   showTab("map");
-  $("cel-title").textContent = "Xong buổi " + (DAYS[s.type] || DAYS.free).name + "!";
+  $("cel-title").textContent = "Xong buổi " + dayOf(s.type, s).name + "!";
   countUp($("cel-sets"), sets, n => String(Math.round(n)));
   countUp($("cel-vol"), vol, n => fmtInt(n));
   countUp($("cel-min"), Math.max(1, Math.round((s.endedAt - s.startedAt) / 60000)), n => String(Math.round(n)));
@@ -2641,14 +2722,15 @@ function renderCalendar() {
       cell = mkBtn("cd has " + (types[0] || "manual"), "", () => { calSel = calSel === k ? null : k; renderCalendar(); });
       cell.setAttribute("aria-pressed", String(calSel === k));
       cell.setAttribute("aria-label", WEEKDAY_LONG[keyDate(k).getDay()] + " " + d + "/" + m + ": "
-        + (types.length ? types.map(t => DAYS[t].name).join(", ") : "đánh dấu tay"));
+        + (types.length ? [...new Set(info.list.map(s => dayOf(s.type, s).name))].join(", ") : "đánh dấu tay"));
       info.list.forEach(s => { counts[DAYS[s.type] ? s.type : "free"]++; });
       if (!types.length) manualOnly++;
     } else { cell = document.createElement("span"); cell.className = "cd"; }
     if (k > today) cell.classList.add("future");
     if (k === today) cell.classList.add("today");
     const n = document.createElement("span"); n.textContent = d; cell.appendChild(n);
-    for (const t of types.slice(0, 2)) { const ty = document.createElement("span"); ty.className = "ty"; ty.textContent = DAYS[t].name; cell.appendChild(ty); }
+    const names = info ? [...new Set(info.list.map(s => dayOf(s.type, s).name))] : [];
+    for (const nm of names.slice(0, 2)) { const ty = document.createElement("span"); ty.className = "ty"; ty.textContent = nm; cell.appendChild(ty); }
     if (info && !types.length) { const dot = document.createElement("span"); dot.className = "dot"; cell.appendChild(dot); }
     grid.appendChild(cell);
   }
@@ -2664,7 +2746,7 @@ function renderCalendar() {
   else {
     const s = document.createElement("span"); s.textContent = total + " buổi:"; key.appendChild(s);
     for (const t of CYCLE) item("", "var(--c-" + t + ")", DAYS[t].name + " " + counts[t]);
-    if (counts.free) item("", "var(--muted)", DAYS.free.name + " " + counts.free);
+    if (counts.free) item("", "var(--muted)", "Buổi riêng " + counts.free);
     if (manualOnly) item("manual", "", "Đánh dấu tay " + manualOnly);
   }
   // Details of the tapped day
@@ -2676,7 +2758,7 @@ function renderCalendar() {
   h.appendChild(hb); box.appendChild(h);
   for (const s of info.list) {
     const p = document.createElement("p"), b = document.createElement("b");
-    b.textContent = (DAYS[s.type] || DAYS.free).name;
+    b.textContent = dayOf(s.type, s).name;
     p.append(b, " · " + sessionLine(s));
     box.append(p, exerciseList(s.exercises || []));
   }
@@ -2913,6 +2995,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=f2df0b1842"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=a32a64d965"));</script>
 </body>
 </html>
