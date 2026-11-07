@@ -351,6 +351,12 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
 .b-block { width: 100%; }
 .b-pill { border-radius: var(--r-pill); }
 .b-primary { --b-bg: var(--accent); --b-fg: var(--accent-ink); }
+/* "add" actions (+ Hiệp, Thêm bài tập): accent-tinted so they are easy to spot mid-workout */
+.b-add { --b-bg: color-mix(in srgb, var(--accent) 16%, var(--surface)); --b-fg: var(--accent); --b-bd: color-mix(in srgb, var(--accent) 60%, transparent); font-weight: 700; border-width: 1.5px; }
+.b-add.b-md { min-height: 50px; font-size: 15px; }
+.b-add .ico { stroke-width: 2.4; }
+.b-add:hover:not(:disabled) { --b-bg: color-mix(in srgb, var(--accent) 24%, var(--surface)); }
+.pe-add { margin: var(--s3) 0 var(--s2); }
 .b-secondary { --b-bg: var(--surface-2); --b-bd: var(--line); }
 .b-ghost { --b-fg: var(--muted); padding: 0 var(--s2); }
 .b-danger { --b-fg: var(--hot); --b-bg: color-mix(in srgb, var(--hot) 10%, var(--surface)); --b-bd: color-mix(in srgb, var(--hot) 28%, transparent); }
@@ -599,9 +605,9 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
           <button class="b b-danger b-md" id="sum-discard" type="button"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg><span>Bỏ buổi này</span></button>
         </div>
       </div>
+      <button class="b b-add b-md b-block" id="w-add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>Thêm bài tập</span></button>
+      <p class="empty" id="w-empty" hidden>Chưa có bài nào. Bấm “Thêm bài tập” ở trên để chọn.</p>
       <div class="stack" id="w-list"></div>
-      <p class="empty" id="w-empty" hidden>Chưa có bài nào. Bấm “Thêm bài tập” để chọn.</p>
-      <button class="b b-secondary b-md b-block" id="w-add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>Thêm bài tập</span></button>
     </div>
     <div class="stack" id="w-prog" hidden></div>
       <div class="card picker" id="w-picker" hidden>
@@ -1920,7 +1926,9 @@ function progEdit(fn) {
 function openProg() { editingProg = true; swapIdx = -1; renderIdle(); renderProgEditor(); window.scrollTo(0, 0); }
 function closeProg() { editingProg = false; $("w-picker").hidden = true; pickCb = null; renderIdle(); window.scrollTo(0, 0); }
 function renderProgEditor() {
-  const box = $("w-prog"); box.textContent = "";
+  const box = $("w-prog");
+  if (box.contains($("w-picker"))) box.after($("w-picker"));   // the shared picker may sit inside; keep it alive
+  box.textContent = "";
   const head = document.createElement("div"); head.className = "w-head";
   const hb = document.createElement("div"); const hbb = document.createElement("b"); hbb.textContent = "Giáo án"; hb.appendChild(hbb);
   head.append(hb, mkBtn("b b-primary b-sm", "Xong", closeProg, "check"));
@@ -1948,6 +1956,10 @@ function renderProgEditor() {
     : programs.days[progDay] ? "Giáo án đã lưu cho " + DAYS[progDay].name + "." : "Chưa chỉnh: đang dùng " + (sortedSessions().some(s => s.type === progDay) ? "bài của buổi trước." : "bài mặc định."))
     + " Bài khởi động luôn xếp đầu buổi, bài giãn cơ xếp cuối.";
   card.appendChild(info);
+  const addRow = document.createElement("div"); addRow.className = "btn-row pe-add";
+  const addTo = filter => () => openPicker(filter, id => { $("w-picker").hidden = true; pickCb = null; progEdit(p => { p.push({ id, n: EX[id].sets }); }); }, have, addRow);
+  addRow.append(mkBtn("b b-add b-md", "Thêm bài", addTo(CYCLE.includes(progDay) ? progDay : "all"), "plus"), mkBtn("b b-secondary b-md", "Thêm khởi động / giãn cơ", addTo("mob"), "leaf"));
+  card.appendChild(addRow);
   plan.forEach((x, i) => {
     const e = EX[x.id], row = document.createElement("div"); row.className = "pe-row";
     const nm = document.createElement("div"); const b = document.createElement("b"); b.textContent = e.name;
@@ -1981,8 +1993,6 @@ function renderProgEditor() {
   });
   if (!plan.length) { const em = document.createElement("p"); em.className = "empty"; em.textContent = "Ngày này chưa có bài nào."; card.appendChild(em); }
   const row = document.createElement("div"); row.className = "btn-row";
-  const addTo = filter => () => openPicker(filter, id => { $("w-picker").hidden = true; pickCb = null; progEdit(p => { p.push({ id, n: EX[id].sets }); }); }, have);
-  row.append(mkBtn("b b-secondary b-md", "Thêm bài", addTo(CYCLE.includes(progDay) ? progDay : "all"), "plus"), mkBtn("b b-secondary b-md", "Thêm khởi động / giãn cơ", addTo("mob"), "leaf"));
   const rs = mkBtn("b b-danger b-md", isCustom ? "Xóa buổi này" : "Khôi phục mặc định");
   if (isCustom) armConfirm(rs, "Bấm lần nữa để xóa buổi", () => {
     const name = dayOf(progDay).name;
@@ -2224,7 +2234,7 @@ function exerciseCard(ae, idx) {
   ae.sets.forEach((st, i) => sets.appendChild(setRow(ae, idx, i, prev, e)));
   card.append(cue, sets);
   const foot = document.createElement("div"); foot.className = "ex-foot";
-  const add = mkBtn("b b-secondary b-md b-block", "Hiệp", () => {
+  const add = mkBtn("b b-add b-md b-block", "Hiệp", () => {
     const last = ae.sets[ae.sets.length - 1];
     ae.sets.push({ kg: last ? last.kg : null, reps: last ? last.reps : null, done: false });
     saveActive(); rerenderCard(idx);
@@ -2340,8 +2350,10 @@ function earlierSets(idx, i) {
 const FILTERS = [["all", "Tất cả"], ["push", "Push"], ["pull", "Pull"], ["legs", "Legs"], ["core", "Bụng"], ["mob", "Giãn cơ"]];
 let pkFilter = "all";
 let pickCb = null, pickHave = null;   // editor mode: callback + ids already in the plan
-function openPicker(day, cb, have) {
+function openPicker(day, cb, have, anchor) {
   pickCb = cb || null; pickHave = have || null;
+  const at = anchor || (active ? $("w-add") : null);
+  if (at && at.isConnected) at.after($("w-picker"));
   $("w-picker").hidden = false; $("pk-q").value = "";
   pkFilter = day || (active && CYCLE.includes(active.type) ? active.type : "all");
   renderPicker();
@@ -2995,6 +3007,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=a32a64d965"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=edbc833a39"));</script>
 </body>
 </html>
