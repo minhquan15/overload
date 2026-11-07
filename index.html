@@ -205,7 +205,7 @@ td .tools { display: flex; gap: 14px; }
 /* warm-up and stretch cards: calmer, with a tag; no kg column */
 .ex.mob { background: color-mix(in srgb, var(--ok) 6%, var(--surface)); }
 .mob-tag { display: inline-block; font: 600 10px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ok); margin-bottom: 4px; }
-.set.nokg > label.num:first-of-type, .set.nokg > .x { visibility: hidden; }
+.set.reps-only { grid-template-columns: 18px minmax(0, 1fr) 48px 32px; }
 #flex-card { display: grid; gap: 12px; }
 #flex-card .c-head .meta.due { color: var(--accent); font-weight: 600; }
 .ft { display: grid; gap: 6px; }
@@ -1784,7 +1784,20 @@ const fmtClock = sec => {
 const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const fmtDate = k => { const [y, m, d] = k.split("-").map(Number); return WEEKDAY[new Date(y, m - 1, d).getDay()] + " " + pad(d) + "/" + pad(m); };
 const repUnit = e => e && e.hold ? "giây" : "lần";
-const fmtSets = (sets, e) => sets.map(x => e && e.hold && !x.kg ? (x.reps || 0) + "s" : fmtNum(x.kg || 0) + "×" + (x.reps || 0) + (e && e.hold ? "s" : "")).join(" · ");
+// Bodyweight and mobility sets read as reps (or seconds) alone; added load shows as "+kg×reps".
+const fmtSets = (sets, e) => sets.map(x => {
+  const r = (x.reps || 0) + (e && e.hold ? "s" : "");
+  if (e && (e.bw || e.mob)) return x.kg ? "+" + fmtNum(x.kg) + "×" + r : r + (e.hold ? "" : " lần");
+  return fmtNum(x.kg || 0) + "×" + r;
+}).join(" · ");
+// Does this card log kg? Weighted exercises always do. Bodyweight ones only once the user taps
+// "Đeo tạ" (ae.load), or by default when this or last session already had added load.
+function usesKg(ae, e, prev) {
+  if (e.mob) return false;
+  if (!e.bw) return true;
+  if (ae.load != null) return ae.load;
+  return ae.sets.some(x => x.kg > 0) || !!(prev && prev.sets.some(x => x.kg > 0));
+}
 const newId = () => "s-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const fold = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
 const blankSets = n => Array.from({ length: Math.max(1, n) }, () => ({ kg: null, reps: null, done: false }));
@@ -1840,8 +1853,10 @@ function nextDay() {
 function progression(e, prev) {
   if (!prev || !prev.sets.length || !prev.sets.every(x => (x.reps || 0) >= e.reps[1])) return null;
   const heaviest = Math.max(...prev.sets.map(x => x.kg || 0));
-  if (e.hold) return "Lần trước giữ được " + e.reps[1] + "+ giây mọi hiệp: chuyển sang biến thể khó hơn hoặc đeo thêm tạ.";
-  if (e.bw && heaviest === 0) return "Lần trước đạt " + e.reps[1] + "+ lần mọi hiệp: thử đeo thêm " + fmtNum(e.inc) + " kg.";
+  if (e.hold && heaviest === 0) return "Lần trước giữ được " + e.reps[1] + "+ giây mọi hiệp: chuyển sang biến thể khó hơn, hoặc bấm “Đeo tạ”.";
+  if (e.hold) return "Lần trước giữ được " + e.reps[1] + "+ giây mọi hiệp: thử đeo " + fmtNum(heaviest + e.inc) + " kg.";
+  if (e.bw && heaviest === 0) return "Lần trước đạt " + e.reps[1] + "+ lần mọi hiệp: chuyển sang biến thể khó hơn, hoặc bấm “Đeo tạ” để thêm " + fmtNum(e.inc) + " kg.";
+  if (e.bw) return "Lần trước đạt " + e.reps[1] + "+ lần mọi hiệp: thử đeo " + fmtNum(heaviest + e.inc) + " kg.";
   return "Lần trước đạt " + e.reps[1] + "+ lần mọi hiệp: thử " + fmtNum(heaviest + e.inc) + " kg.";
 }
 
@@ -2243,7 +2258,18 @@ function exerciseCard(ae, idx) {
   tech.setAttribute("aria-expanded", "false");
   const del = mkBtn("b b-ghost b-danger b-sm", "Xóa bài", null, "trash");
   armConfirm(del, "Bấm lần nữa để xóa bài", () => { active.exercises.splice(idx, 1); saveActive(); renderActive(); });
-  foot.append(add, see, tech, ytLink(e), del);
+  foot.append(add);
+  if (e.bw && !e.mob) {
+    const on = usesKg(ae, e, prev);
+    const load = mkBtn("b b-ghost b-sm", on ? "Bỏ tạ" : "Đeo tạ", () => {
+      ae.load = !on;
+      if (on) ae.sets.forEach(x => { x.kg = 0; });   // back to bodyweight only
+      saveActive(); rerenderCard(idx);
+    }, on ? "minus" : "plus");
+    load.setAttribute("aria-label", on ? "Bỏ ô tạ đeo thêm, chỉ ghi số " + repUnit(e) : "Hiện ô ghi số kg tạ đeo thêm");
+    foot.appendChild(load);
+  }
+  foot.append(see, tech, ytLink(e), del);
   card.appendChild(foot);
   return card;
 }
@@ -2278,7 +2304,8 @@ function compareSet(st, prevSet, unit) {
 }
 function setRow(ae, idx, i, prev, e) {
   const st = ae.sets[i];
-  const row = document.createElement("div"); row.className = "set" + (st.done ? " done" : "") + (e.mob ? " nokg" : "");
+  const withKg = usesKg(ae, e, prev);
+  const row = document.createElement("div"); row.className = "set" + (st.done ? " done" : "") + (withKg ? "" : " reps-only");
   const n = document.createElement("span"); n.className = "set-n"; n.textContent = i + 1;
   // Grey hints come from the same set last session, else from the set above. Tapping ✓ on an
   // empty row copies them, so repeating last time's numbers is one tap.
@@ -2294,7 +2321,8 @@ function setRow(ae, idx, i, prev, e) {
     let burst = false;
     ensureAudio();
     if (!st.done) {
-      if (st.kg == null) st.kg = kgHint;
+      if (!withKg) st.kg = 0;
+      else if (st.kg == null) st.kg = kgHint;
       if (st.reps == null) st.reps = repHint;
       if (st.kg == null) { kg.querySelector("input").focus(); return; }
       if (st.reps == null) { reps.querySelector("input").focus(); return; }
@@ -2313,7 +2341,8 @@ function setRow(ae, idx, i, prev, e) {
     saveActive(); rerenderCard(idx);
   }, "minus");
   del.setAttribute("aria-label", "Xóa hiệp " + (i + 1));
-  row.append(n, kg, x, reps, tick, del);
+  if (withKg) row.append(n, kg, x, reps, tick, del);
+  else row.append(n, reps, tick, del);
   const rec = st.done && recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i));
   const cmp = st.done ? compareSet(st, prev && prev.sets[i], repUnit(e)) : null;
   if (rec || cmp) {
@@ -2943,6 +2972,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=6438ba0b74"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=7b82f7630f"));</script>
 </body>
 </html>
