@@ -161,7 +161,6 @@ td.act { width: 40px; text-align: right; padding-left: 8px; }
 .w-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 8px 16px; }
 .w-head b { font: 700 28px/1 var(--font-display); text-transform: uppercase; }
 .w-left { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
-.w-left .clock { margin-left: 0; }
 .ring { position: relative; width: 40px; height: 40px; flex: none; display: inline-grid; place-items: center; }
 .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
 .ring circle { fill: none; stroke-width: 3.5; }
@@ -171,7 +170,6 @@ td.act { width: 40px; text-align: right; padding-left: 8px; }
 .ring.full .rf { stroke: var(--ok); }
 .ring.full span { color: var(--ok); }
 .w-head .b-primary.glow { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
-.w-head .clock { font: 500 15px/1 var(--font-data); color: var(--muted); margin-left: 10px; font-variant-numeric: tabular-nums; }
 .ex { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 8px; min-width: 0; }
 .ex h3 { margin: 0; font-size: 17px; line-height: 1.25; }
 .ex .vi { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
@@ -239,7 +237,6 @@ td .tools { display: flex; gap: 14px; }
 /* Rest timer pinned to the bottom of the screen */
   padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-body.has-timer { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 30; background: var(--ink); color: var(--bg); font-size: 14px; padding: 10px 14px; border-radius: 10px; max-width: calc(100% - 32px); }
 .toast.pr { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 
@@ -299,7 +296,6 @@ body.has-timer { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 .sheet { position: fixed; inset: 0; z-index: 15; background: var(--bg); overflow-y: auto; overscroll-behavior: contain;
   padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-body.has-timer .sheet { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 140px); }
 html.sheet-open, html.sheet-open body { overflow: hidden; }
 .sheet-in { max-width: 640px; margin: 0 auto; display: grid; gap: 12px; }
 .sheet h2 { font: 700 30px/1 var(--font-display); text-transform: uppercase; margin: 0; text-wrap: balance; }
@@ -427,24 +423,11 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
 .b.done { --b-bg: transparent; --b-fg: var(--ok); --b-bd: var(--ok); }
 
 /* Rest timer */
-.timer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--ink); color: var(--bg); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s3);
   padding-top: var(--s4); padding-bottom: calc(var(--s3) + env(safe-area-inset-bottom, 0px));
   padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
-.timer .t-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; background: color-mix(in srgb, var(--bg) 22%, transparent); overflow: hidden; }
-.timer .t-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s linear; }
-.timer .t-label { display: flex; align-items: center; gap: var(--s1); font-size: 12px; opacity: .8; }
-.timer .t-label .ico { width: 14px; height: 14px; }
-.timer .t-time { display: block; font: 600 44px/1 var(--font-data); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-.timer .t-next { grid-column: 1 / -1; justify-content: flex-start; min-height: 40px; padding: 0 var(--s2); min-width: 0; margin-top: calc(var(--s1) * -1); }
-.timer .t-next span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .confetti { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 40; }
 .confetti i { position: absolute; left: 0; top: 0; width: 7px; height: 11px; border-radius: 2px; opacity: 0; animation: burst .85s cubic-bezier(.2, .7, .3, 1) forwards; }
 @keyframes burst { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); } }
-.timer .t-btns { display: flex; gap: var(--s2); justify-content: flex-end; }
-.timer .b { --b-fg: var(--bg); --b-bg: color-mix(in srgb, var(--bg) 14%, transparent); --b-bd: color-mix(in srgb, var(--bg) 24%, transparent); min-height: 44px; padding: 0 var(--s3); }
-.timer .b-ghost { --b-bg: transparent; --b-bd: transparent; }
-.timer .b:hover:not(:disabled) { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
-.timer.over .t-bar i { background: var(--bg); }
 
 /* Map overlay controls */
 .pose { display: inline-flex; align-items: center; gap: var(--s2); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 14px 3px 3px; pointer-events: auto; }
@@ -586,7 +569,7 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
 
     <div class="stack" id="w-active" hidden>
       <div class="w-head">
-        <div class="w-left"><b id="w-title">Push</b><span class="clock" id="w-clock">0:00</span>
+        <div class="w-left"><b id="w-title">Push</b>
           <span class="ring" id="w-ring" role="img" aria-label="Tiến độ buổi tập"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="rt" cx="18" cy="18" r="15"/><circle class="rf" cx="18" cy="18" r="15"/></svg><span id="w-ring-t">0/0</span></span></div>
         <button class="b b-primary b-sm" id="w-finish" type="button"><svg class="ico" aria-hidden="true"><use href="#i-flag"/></svg><span>Kết thúc</span></button>
       </div>
@@ -704,16 +687,6 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
   </section>
 </div>
 
-<div class="timer" id="timer" hidden>
-  <div><span class="t-label"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span id="t-label">Nghỉ giữa hiệp</span></span><span class="t-time" id="t-time" role="timer">0:00</span></div>
-  <div class="t-btns">
-    <button type="button" class="b b-secondary b-sm" id="t-minus" aria-label="Bớt 15 giây">−15s</button>
-    <button type="button" class="b b-secondary b-sm" id="t-plus" aria-label="Thêm 15 giây">+15s</button>
-    <button type="button" class="b b-ghost b-sm" id="t-skip">Bỏ qua</button>
-  </div>
-  <button type="button" class="b b-ghost b-sm t-next" id="t-next" hidden><svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg><span id="t-next-t"></span></button>
-  <div class="t-bar"><i id="t-prog"></i></div>
-</div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <div class="sheet" id="prog" role="dialog" aria-modal="true" aria-labelledby="pg-title" hidden>
@@ -1153,7 +1126,7 @@ async function connectStore() {
       dataChanged(); persistLocal();
       storeNote("Nhật ký được lưu riêng trong tài khoản của bạn.");
       refreshAll();
-      if (activeChanged) { renderActive(); tickTimer(); } else renderIdle();
+      if (activeChanged) renderActive(); else renderIdle();
       if (pg) renderProgress();
     }, () => { userCol = null; storeFail(); });
   } catch (e) { userCol = null; }
@@ -2120,7 +2093,7 @@ function startSession(type) {
   // Warm-ups the user put in the day go first and stretches last, whatever order they were added in.
   const rank = x => { const m = EX[x.id] && EX[x.id].mob; return m === "warm" ? 0 : m === "cool" ? 2 : 1; };
   exercises = exercises.map((x, i) => [x, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(p => p[0]);
-  active = { id: newId(), type, startedAt: Date.now(), restEnd: 0, restTotal: 0, exercises };
+  active = { id: newId(), type, startedAt: Date.now(), exercises };
   saveActive(true); ensureAudio(); keepAwake();
   renderActive(); window.scrollTo(0, 0);
   if (!exercises.length) openPicker(CYCLE.includes(type) ? type : "all");   // empty free or custom workout
@@ -2135,7 +2108,6 @@ function renderActive() {
   active.exercises.forEach((ae, idx) => { if (EX[ae.id]) list.appendChild(exerciseCard(ae, idx)); });
   $("w-empty").hidden = active.exercises.length > 0;
   markNext(); updateProgress();
-  updateClock();
 }
 // Exercise illustration: lazy-loaded, swaps start/end photo; timer dies with the node.
 function ytLink(e) {
@@ -2176,23 +2148,6 @@ function updateProgress() {
   $("w-ring-t").textContent = done + "/" + total;
   r.setAttribute("aria-label", "Đã xong " + done + " trên " + total + " hiệp");
   $("w-finish").classList.toggle("glow", full);
-}
-// First undone set: after the one just ticked in the same card, else the next card (then any earlier one).
-function nextSet() {
-  if (!active) return null;
-  const at = (c, from) => { const ae = active.exercises[c]; if (!ae || !EX[ae.id]) return null; for (let k = from; k < ae.sets.length; k++) if (!ae.sets[k].done) return { c, k }; return null; };
-  const start = lastTick != null && lastTick < active.exercises.length ? lastTick : 0;
-  let r = at(start, 0);
-  for (let c = start + 1; !r && c < active.exercises.length; c++) r = at(c, 0);
-  for (let c = 0; !r && c < start; c++) r = at(c, 0);
-  return r;
-}
-function nextSetText() {
-  const n = nextSet(); if (!n) return null;
-  const ae = active.exercises[n.c], e = EX[ae.id], st = ae.sets[n.k], h = setHints(ae, n.k, lastPerformance(ae.id), e);
-  const kg = st.kg != null ? st.kg : h.kgHint, reps = st.reps != null ? st.reps : h.repHint;
-  const load = kg != null ? fmtNum(kg) + " kg" : null, rp = reps != null ? String(reps) : e.reps[0] + "–" + e.reps[1];
-  return { n, text: "Tiếp: " + e.name + " · " + (load && kg ? load + " × " + rp + (e.hold ? " giây" : "") : rp + " " + repUnit(e)) };
 }
 function rerenderCard(idx) { const old = $("ex-" + idx); if (old) old.replaceWith(exerciseCard(active.exercises[idx], idx)); markNext(); updateProgress(); }
 function exerciseCard(ae, idx) {
@@ -2300,14 +2255,13 @@ function setRow(ae, idx, i, prev, e) {
     v => { st.reps = v == null ? null : Math.min(500, Math.max(0, Math.round(v))); saveActive(); });
   const tick = mkBtn("b b-icon tick", "", () => {
     let burst = false;
-    ensureAudio(); lastTick = idx;
+    ensureAudio();
     if (!st.done) {
       if (st.kg == null) st.kg = kgHint;
       if (st.reps == null) st.reps = repHint;
       if (st.kg == null) { kg.querySelector("input").focus(); return; }
       if (st.reps == null) { reps.querySelector("input").focus(); return; }
       st.done = true;
-      if (e.rest) startRest(e.rest);
       const rec = recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i));
       if (rec) { toast("Kỷ lục mới · " + e.name + ": " + rec, true); burst = true; }
     } else st.done = false;
@@ -2402,8 +2356,7 @@ $("w-add").onclick = () => openPicker();
 $("w-free").onclick = () => startSession("free");
 
 /* Rest timer, clock, sound and screen wake */
-let lastTick = null;   // card of the set ticked last, for the "Tiếp" line
-let audioCtx = null, wakeLock = null, restAlerted = false;
+let audioCtx = null, wakeLock = null;
 // Sound and vibration switch: a per-device convenience, on by default.
 const SOUND_KEY = "ban-do-co-bap.sound";
 let soundOn = true;
@@ -2454,21 +2407,6 @@ function ensureAudio() {
     if (audioCtx.state === "suspended") audioCtx.resume();
   } catch (e) { audioCtx = null; }
 }
-function beep() {
-  if (!audioCtx || !soundOn) return;
-  try {
-    const t0 = audioCtx.currentTime;
-    for (let k = 0; k < 3; k++) {
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = t0 + k * 0.25;
-      o.frequency.value = 880;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-      o.connect(g).connect(audioCtx.destination);
-      o.start(t); o.stop(t + 0.2);
-    }
-  } catch (e) {}
-}
 // Two rising tones for a new personal record.
 function prSound() {
   if (!audioCtx || !soundOn) return;
@@ -2513,47 +2451,8 @@ async function keepAwake() {
   } catch (e) { wakeLock = null; }
 }
 function releaseAwake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { keepAwake(); tickTimer(); } });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
 
-function startRest(sec) { active.restTotal = sec; active.restEnd = Date.now() + sec * 1000; restAlerted = false; tickTimer(); }
-function paintNext() {
-  const b = $("t-next"), nx = nextSetText();
-  b.hidden = !nx;
-  if (nx) {
-    if ($("t-next-t").textContent !== nx.text) $("t-next-t").textContent = nx.text;
-    b.onclick = () => { const row = $("ex-" + nx.n.c) && $("ex-" + nx.n.c).querySelectorAll(".set")[nx.n.k]; if (row) row.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" }); };
-  }
-}
-function tickTimer() {
-  const el = $("timer");
-  if (!active || !active.restEnd) { el.hidden = true; document.body.classList.remove("has-timer"); return; }
-  const left = (active.restEnd - Date.now()) / 1000;
-  el.hidden = false; document.body.classList.add("has-timer");
-  if (left > 0) {
-    el.classList.remove("over");
-    $("t-label").textContent = "Nghỉ giữa hiệp";
-    $("t-time").textContent = fmtClock(Math.ceil(left));
-    paintNext();
-    $("t-prog").style.width = Math.min(100, 100 * (1 - left / (active.restTotal || 1))) + "%";
-  } else {
-    if (!restAlerted) { restAlerted = true; beep(); buzz([200, 100, 200]); }
-    el.classList.add("over");
-    $("t-label").textContent = "Hết giờ nghỉ · vào hiệp tiếp";
-    $("t-time").textContent = "+" + fmtClock(-left);
-    paintNext();
-    $("t-prog").style.width = "100%";
-    if (-left > 90) { active.restEnd = 0; saveActive(); tickTimer(); }
-  }
-}
-$("t-minus").onclick = () => { if (active && active.restEnd) { active.restEnd -= 15000; saveActive(); tickTimer(); } };
-$("t-plus").onclick = () => {
-  if (!active || !active.restEnd) return;
-  active.restEnd = Math.max(active.restEnd, Date.now()) + 15000; active.restTotal += 15; restAlerted = false;
-  saveActive(); tickTimer();
-};
-$("t-skip").onclick = () => { if (active) { active.restEnd = 0; saveActive(); tickTimer(); } };
-function updateClock() { if (active) $("w-clock").textContent = fmtClock((Date.now() - active.startedAt) / 1000); }
-setInterval(() => { if (active) { updateClock(); tickTimer(); } }, 250);
 
 /* Finish, save or discard */
 function doneOnly() {
@@ -2581,7 +2480,7 @@ function showSummary() {
   $("w-summary").hidden = false;
   $("w-summary").scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
 }
-function endActive() { active = null; saveActive(true); releaseAwake(); tickTimer(); $("w-summary").hidden = true; renderActive(); window.scrollTo(0, 0); }
+function endActive() { active = null; saveActive(true); releaseAwake(); $("w-summary").hidden = true; renderActive(); window.scrollTo(0, 0); }
 $("w-finish").onclick = showSummary;
 $("sum-back").onclick = () => { $("w-summary").hidden = true; };
 $("sum-save").onclick = () => {
@@ -2994,7 +2893,6 @@ function showExerciseOnMap(id) {
 /* ---------- Start-up ---------- */
 refreshAll();
 renderActive();
-tickTimer();
 if (active) keepAwake();
 let savedTab = null;
 try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) {}
@@ -3008,6 +2906,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=3e618f8400"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=c48a943460"));</script>
 </body>
 </html>
