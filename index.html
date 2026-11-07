@@ -352,10 +352,11 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
 .b-pill { border-radius: var(--r-pill); }
 .b-primary { --b-bg: var(--accent); --b-fg: var(--accent-ink); }
 /* "add" actions (+ Hiệp, Thêm bài tập): accent-tinted so they are easy to spot mid-workout */
-.b-add { --b-bg: color-mix(in srgb, var(--accent) 16%, var(--surface)); --b-fg: var(--accent); --b-bd: color-mix(in srgb, var(--accent) 60%, transparent); font-weight: 700; border-width: 1.5px; }
+.b-add { --b-bg: var(--accent); --b-fg: var(--accent-ink); --b-bd: var(--accent); font-weight: 700;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent); }
 .b-add.b-md { min-height: 50px; font-size: 15px; }
-.b-add .ico { stroke-width: 2.4; }
-.b-add:hover:not(:disabled) { --b-bg: color-mix(in srgb, var(--accent) 24%, var(--surface)); }
+.b-add .ico { stroke-width: 2.6; }
+.b-add:hover:not(:disabled) { filter: brightness(1.08); }
 .pe-add { margin: var(--s3) 0 var(--s2); }
 .b-secondary { --b-bg: var(--surface-2); --b-bd: var(--line); }
 .b-ghost { --b-fg: var(--muted); padding: 0 var(--s2); }
@@ -3007,6 +3008,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=edbc833a39"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=3e618f8400"));</script>
 </body>
 </html>
