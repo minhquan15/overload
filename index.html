@@ -505,7 +505,6 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
         <div class="start-links">
           <button class="b b-ghost b-md" id="w-free" type="button"><svg class="ico" aria-hidden="true"><use href="#i-play"/></svg><span>Buổi tự do: tự chọn bài</span></button>
           <button class="b b-ghost b-md" id="w-prog-open" type="button"><svg class="ico" aria-hidden="true"><use href="#i-edit"/></svg><span>Giáo án: sửa bài từng ngày</span></button>
-          <button class="b b-ghost b-md" id="w-mob" type="button" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-leaf"/></svg><span>Khởi động &amp; giãn cơ: bật</span></button>
           <button class="b b-ghost b-md" id="w-sound" type="button" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-sound"/></svg><span>Âm thanh &amp; rung: bật</span></button>
         </div>
         <p class="meta">Tăng cơ: mỗi nhóm cơ 10–20 hiệp mỗi tuần, phần lớn các hiệp trong khoảng 6–15 lần, dừng khi còn sức làm thêm 1–3 lần.</p>
@@ -742,6 +741,8 @@ const MUSCLES = {
     fn: "Kéo cánh tay xuống và ra sau. Đây là cơ tạo dáng lưng chữ V." },
   lowerback: { name: "Lưng dưới", short: "Lưng dưới", latin: "Erector spinae", rest: 72,
     fn: "Duỗi và giữ thẳng cột sống. Gánh tải lớn trong deadlift và squat." },
+  adductors: { name: "Đùi trong", short: "Đùi trong", latin: "Adductores (magnus, longus, brevis)", rest: 48,
+    fn: "Khép đùi vào trong, giữ khung chậu vững khi squat và lunge, hỗ trợ duỗi hông ở đáy squat." },
   glutes:    { name: "Mông", short: "Mông", latin: "Gluteus maximus", rest: 72,
     fn: "Duỗi và xoay ngoài khớp háng. Cơ lớn và khỏe nhất cơ thể." },
   quads:     { name: "Đùi trước", short: "Đùi trước", latin: "Quadriceps femoris", rest: 72,
@@ -751,7 +752,7 @@ const MUSCLES = {
   calves:    { name: "Bắp chân", short: "Bắp chân", latin: "Gastrocnemius & soleus", rest: 48,
     fn: "Duỗi cổ chân (kiễng gót). Chịu tải mỗi bước chạy, nhảy." },
 };
-const ORDER = ["chest","shoulders","biceps","triceps","forearms","abs","obliques","serratus","traps","lats","lowerback","glutes","quads","hamstrings","calves"];
+const ORDER = ["chest","shoulders","biceps","triceps","forearms","abs","obliques","serratus","traps","lats","lowerback","adductors","glutes","quads","hamstrings","calves"];
 
 /* ---------- Exercise library (hypertrophy defaults) ---------- */
 // day: PPL day the exercise belongs to ("core" fits any day). p / s: primary and secondary muscle
@@ -795,18 +796,18 @@ const EXERCISES = [
   { id: "wrist_curl", name: "Wrist curl", vi: "Cuốn cổ tay", day: "pull", p: ["forearms"], s: [], rest: 45, reps: [12, 20], sets: 2, inc: 1, cue: "Cẳng tay tì ghế, chỉ cổ tay chuyển động." },
   { id: "deadlift", name: "Deadlift", yt: "Deadlift Jeff Nippard", vi: "Kéo tạ từ sàn", day: "pull", p: ["lowerback", "glutes", "hamstrings"], s: ["traps", "forearms", "quads"], rest: 180, reps: [4, 8], sets: 3, inc: 5, cue: "Thanh sát ống quyển, lưng giữ thẳng, đẩy sàn ra xa rồi đẩy hông tới." },
   // Legs
-  { id: "squat", name: "Back squat", yt: "Back squat Jeff Nippard", vi: "Gánh tạ ngồi xổm", day: "legs", p: ["quads", "glutes"], s: ["lowerback", "hamstrings"], rest: 180, reps: [6, 10], sets: 4, inc: 5, cue: "Gối đi theo hướng mũi chân, xuống ít nhất tới khi đùi song song sàn." },
+  { id: "squat", name: "Back squat", yt: "Back squat Jeff Nippard", vi: "Gánh tạ ngồi xổm", day: "legs", p: ["quads", "glutes"], s: ["lowerback", "hamstrings", "adductors"], rest: 180, reps: [6, 10], sets: 4, inc: 5, cue: "Gối đi theo hướng mũi chân, xuống ít nhất tới khi đùi song song sàn." },
   { id: "front_squat", name: "Front squat", vi: "Squat tạ trước ngực", day: "legs", p: ["quads"], s: ["glutes", "abs"], rest: 180, reps: [6, 10], sets: 3, inc: 2.5, cue: "Khuỷu nâng cao, thân thẳng đứng hơn back squat." },
   { id: "hack_squat", name: "Hack squat", vi: "Squat máy hack", day: "legs", p: ["quads"], s: ["glutes"], rest: 120, reps: [8, 12], sets: 3, inc: 5, cue: "Đặt chân thấp trên bàn đạp để vào đùi trước nhiều hơn." },
   { id: "leg_press", name: "Leg press", vi: "Đạp đùi máy", day: "legs", p: ["quads", "glutes"], s: ["hamstrings"], rest: 120, reps: [10, 15], sets: 3, inc: 10, cue: "Lưng dưới áp ghế, không khóa gối ở đỉnh." },
-  { id: "bss", name: "Bulgarian split squat", vi: "Squat một chân, chân sau gác ghế", day: "legs", p: ["quads", "glutes"], s: ["hamstrings"], rest: 90, reps: [8, 12], sets: 3, inc: 2, cue: "Ghi số lần cho mỗi chân. Thân hơi nghiêng trước để vào mông nhiều hơn." },
-  { id: "lunge", name: "Walking lunge", vi: "Chùng chân bước tới", day: "legs", p: ["quads", "glutes"], s: ["hamstrings"], rest: 90, reps: [10, 12], sets: 3, inc: 2, cue: "Ghi số bước mỗi chân. Gối sau gần chạm sàn." },
+  { id: "bss", name: "Bulgarian split squat", vi: "Squat một chân, chân sau gác ghế", day: "legs", p: ["quads", "glutes"], s: ["hamstrings", "adductors"], rest: 90, reps: [8, 12], sets: 3, inc: 2, cue: "Ghi số lần cho mỗi chân. Thân hơi nghiêng trước để vào mông nhiều hơn." },
+  { id: "lunge", name: "Walking lunge", vi: "Chùng chân bước tới", day: "legs", p: ["quads", "glutes"], s: ["hamstrings", "adductors"], rest: 90, reps: [10, 12], sets: 3, inc: 2, cue: "Ghi số bước mỗi chân. Gối sau gần chạm sàn." },
   { id: "leg_ext", name: "Leg extension", vi: "Đá đùi máy", day: "legs", p: ["quads"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 5, cue: "Duỗi hết gối, dừng 1 giây ở đỉnh." },
   { id: "rdl", name: "Romanian deadlift", yt: "Romanian deadlift Jeff Nippard", vi: "Kéo tạ chân thẳng kiểu Romania", day: "legs", p: ["hamstrings", "glutes"], s: ["lowerback", "forearms"], rest: 120, reps: [8, 10], sets: 3, inc: 5, cue: "Đẩy hông ra sau, lưng thẳng, hạ tới khi đùi sau căng." },
   { id: "leg_curl", name: "Lying leg curl", vi: "Nằm cuốn đùi sau", day: "legs", p: ["hamstrings"], s: ["calves"], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Hông áp đệm, hạ chậm 2–3 giây." },
   { id: "seated_curl", name: "Seated leg curl", vi: "Ngồi cuốn đùi sau", day: "legs", p: ["hamstrings"], s: [], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Nghiêng người về trước để kéo giãn đùi sau nhiều hơn." },
   { id: "hip_thrust", name: "Hip thrust", vi: "Đẩy hông với thanh đòn", day: "legs", p: ["glutes"], s: ["hamstrings", "quads"], rest: 90, reps: [8, 12], sets: 3, inc: 5, cue: "Thu cằm, siết mông ở đỉnh 1 giây, ống quyển thẳng đứng." },
-  { id: "back_ext", name: "Back extension", vi: "Gập duỗi lưng trên ghế 45°", day: "legs", p: ["lowerback", "glutes"], s: ["hamstrings"], rest: 60, reps: [12, 15], sets: 2, inc: 2.5, bw: true, cue: "Gập ở hông, không ưỡn quá ở đỉnh." },
+  { id: "back_ext", name: "Back extension · lưng dưới", vi: "Ghế 45°, nhắm lưng dưới", day: "legs", p: ["lowerback"], s: ["glutes", "hamstrings"], rest: 60, reps: [12, 15], sets: 2, inc: 2.5, bw: true, cue: "Đệm đặt cao ngay dưới xương chậu để hông khó gập; cuộn cột sống xuống từng đốt rồi duỗi lưng thẳng lên, tới thẳng hàng thì dừng, không ưỡn quá." },
   { id: "calf_stand", name: "Standing calf raise", vi: "Kiễng gót đứng", day: "legs", p: ["calves"], s: [], rest: 60, reps: [10, 15], sets: 4, inc: 5, cue: "Dừng 1 giây ở đáy để bỏ lực đàn hồi, kiễng hết cỡ." },
   { id: "calf_seated", name: "Seated calf raise", vi: "Kiễng gót ngồi", day: "legs", p: ["calves"], s: [], rest: 60, reps: [15, 20], sets: 3, inc: 5, cue: "Tập trung vào cơ dép, biên độ hết cỡ." },
   // Core (any day)
@@ -841,6 +842,17 @@ const EXERCISES = [
   { id: "wall_slide", name: "Wall slide", vi: "Trượt cẳng tay lên tường", day: "push", p: ["serratus"], s: ["shoulders", "traps"], rest: 45, reps: [10, 15], sets: 2, inc: 2.5, bw: true, noImg: true, cue: "Cẳng tay áp tường, trượt lên cao đồng thời ép tay vào tường; cảm nhận cơ dưới nách." },
   { id: "landmine_press", name: "Landmine press", vi: "Đẩy thanh đòn một đầu", day: "push", p: ["shoulders", "chest"], s: ["serratus", "triceps"], rest: 90, reps: [8, 12], sets: 3, inc: 2.5, noImg: true, cue: "Đẩy thanh chéo lên phía trước; cuối động tác vươn thêm để bả vai đưa ra trước." },
   { id: "db_pullover", name: "Dumbbell pullover", vi: "Kéo tạ đơn qua đầu", day: "pull", p: ["lats", "chest"], s: ["serratus", "triceps"], rest: 90, reps: [10, 15], sets: 3, inc: 2, cue: "Nằm ngang ghế, tay gần thẳng, hạ tạ ra sau đầu tới khi căng sườn rồi kéo về." },
+  // Hip extension variants, inner thigh and cable glute work
+  { id: "back_ext_glute", img: "back_ext", name: "Back extension · mông", vi: "Ghế 45°, nhắm mông", day: "legs", p: ["glutes"], s: ["hamstrings"], rest: 60, reps: [12, 20], sets: 3, inc: 2.5, bw: true, cue: "Đệm đặt thấp dưới nếp háng, mũi chân xoay ra ngoài, lưng trên hơi tròn và giữ nguyên; gập ở hông, đẩy hông vào đệm và siết mông khi lên, dừng ở thẳng hàng." },
+  { id: "reverse_hyper", name: "Reverse hyperextension", vi: "Nằm sấp trên ghế, nâng chân ra sau", day: "legs", p: ["glutes"], s: ["hamstrings", "lowerback"], rest: 90, reps: [12, 15], sets: 3, inc: 5, cue: "Thân trên tì chặt ghế, nâng hai chân bằng mông tới ngang thân, hạ có kiểm soát, không vung." },
+  { id: "hip_adduction", name: "Hip adduction machine", vi: "Máy khép đùi", day: "legs", p: ["adductors"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 5, cue: "Ngồi thẳng lưng, khép đùi chậm và siết 1 giây, mở ra từ từ tới khi đùi trong căng." },
+  { id: "cable_adduction", name: "Cable hip adduction", vi: "Khép đùi với cáp, mỗi chân", day: "legs", p: ["adductors"], s: [], rest: 45, reps: [12, 15], sets: 2, inc: 2.5, cue: "Ghi số lần mỗi chân. Đai cáp ở cổ chân trong, kéo chân băng ngang qua trước chân trụ, thân không nghiêng." },
+  { id: "hip_abduction", name: "Hip abduction machine", vi: "Máy dang đùi, tập mông nhỡ", day: "legs", p: ["glutes"], s: [], rest: 60, reps: [12, 20], sets: 3, inc: 5, cue: "Hơi nghiêng người ra trước để vào mông nhiều hơn; đẩy đầu gối ra, giữ 1 giây, về chậm." },
+  { id: "cable_kickback", name: "Cable kickback · đá thẳng", vi: "Đá chân thẳng ra sau với cáp, mỗi chân", day: "legs", p: ["glutes"], s: ["hamstrings"], rest: 60, reps: [10, 15], sets: 3, inc: 2.5, cue: "Ghi số lần mỗi chân. Vịn máy, gập người nhẹ, đá thẳng ra sau bằng mông, không ưỡn lưng dưới." },
+  { id: "cable_kickback_45", img: "cable_kickback", name: "Cable kickback · đá chéo 45°", vi: "Đá chéo ra sau và sang ngang, mỗi chân", day: "legs", p: ["glutes"], s: [], rest: 60, reps: [12, 15], sets: 3, inc: 2.5, cue: "Ghi số lần mỗi chân. Đá chân chếch 45° ra sau – sang ngang, mũi chân hơi xoay ra; nhắm phần mông trên và mông nhỡ." },
+  { id: "cable_kickback_bent", name: "Cable kickback · gối gập", vi: "Gập gối 90°, đạp gót lên trần, mỗi chân", day: "legs", p: ["glutes"], s: ["hamstrings"], rest: 60, reps: [12, 15], sets: 3, inc: 2.5, cue: "Ghi số lần mỗi chân. Giữ gối gập 90° suốt hiệp, đạp gót lên cao bằng mông; quỳ chống tay hoặc đứng gập người đều được." },
+  { id: "cable_abduction", name: "Cable hip abduction · đá ngang", vi: "Đứng đá ngang với cáp, mỗi chân", day: "legs", p: ["glutes"], s: [], rest: 45, reps: [12, 20], sets: 3, inc: 2.5, noImg: true, cue: "Ghi số lần mỗi chân. Đai cáp ở cổ chân ngoài, đá chân sang ngang bằng mông nhỡ, thân thẳng, không nghiêng người theo." },
+  { id: "pull_through", name: "Cable pull-through", vi: "Kéo cáp qua háng", day: "legs", p: ["glutes"], s: ["hamstrings"], rest: 90, reps: [10, 15], sets: 3, inc: 5, cue: "Quay lưng vào máy, đẩy hông ra sau như RDL rồi đẩy hông tới, siết mông ở đỉnh; tay chỉ giữ dây." },
   // Mobility: warm-up drills (counted in reps) and stretches (hold = seconds, per side where noted).
   // Equipment is only a wall, a door frame, a towel or belt and a stick (broom handle); no bands.
   // They never count as training for recovery, weekly sets, records or load hints.
@@ -874,15 +886,6 @@ const DAYS = {
   free: { name: "Tự do", vi: "Tự chọn bài", plan: [] },
 };
 const CYCLE = ["push", "pull", "legs"];
-// Warm-up before and stretches after each day. MOB_FOCUS targets the user's own limits (can't touch
-// the toes; stiff shoulder rotation) and closes every session, because flexibility improves with how
-// often it is stretched more than with how long.
-const MOBILITY = {
-  push: { warm: ["arm_circles", "stick_pass", "shoulder_cars"], cool: ["chest_stick", "cross_body", "overhead_tri"] },
-  pull: { warm: ["arm_circles", "cat_cow", "shoulder_cars"], cool: ["child_pose", "cross_body"] },
-  legs: { warm: ["leg_swing", "worlds_greatest", "ham_9090"], cool: ["hip_flexor", "pigeon", "calf_wall"] },
-};
-const MOB_FOCUS = ["supine_ham", "sleeper", "er_stick"];
 
 /* ---------- Training data store ---------- */
 // manualDays: muscle groups ticked by hand on the map ({date: [group]}). sessions: saved workouts.
@@ -1378,6 +1381,7 @@ function loadModel() {
       const layer = layerMeshes[parts[2]] ? parts[2] : "core";
       let g = mats[mn.replace(/^m_/, "")] && mn !== "m_other" ? mn.replace(/^m_/, "") : "other";
       if (g === "other" && /serratus.anterior/i.test(parts[3] || "")) g = "serratus";
+      if (g === "other" && layer === "core" && /adductor (longus|brevis|magnus|minimus)|gracilis|pectineus/i.test(parts[3] || "")) g = "adductors";
       o.material = mn === "fascia" ? FASCIA_MAT : mn === "sheath" ? SHEATH_MAT : mats[g];
       // Per-vertex tangents give the fiber normal map a smooth frame; without them three.js
       // derives one per triangle and the fibers shade in facets.
@@ -1893,11 +1897,13 @@ function renderProgEditor() {
   card.appendChild(seg);
   const plan = basePlan(progDay), have = new Set(plan.map(x => x.id));
   const info = document.createElement("p"); info.className = "meta";
-  info.textContent = programs.days[progDay] ? "Giáo án đã lưu cho " + DAYS[progDay].name + "." : "Chưa chỉnh: đang dùng " + (sortedSessions().some(s => s.type === progDay) ? "bài của buổi trước." : "bài mặc định.");
+  info.textContent = (programs.days[progDay] ? "Giáo án đã lưu cho " + DAYS[progDay].name + "." : "Chưa chỉnh: đang dùng " + (sortedSessions().some(s => s.type === progDay) ? "bài của buổi trước." : "bài mặc định."))
+    + " Bài khởi động luôn xếp đầu buổi, bài giãn cơ xếp cuối.";
   card.appendChild(info);
   plan.forEach((x, i) => {
     const e = EX[x.id], row = document.createElement("div"); row.className = "pe-row";
     const nm = document.createElement("div"); const b = document.createElement("b"); b.textContent = e.name;
+    if (e.mob) { const tg = document.createElement("span"); tg.className = "mob-tag"; tg.textContent = e.mob === "warm" ? "Khởi động" : "Giãn cơ"; nm.appendChild(tg); }
     const sm = document.createElement("small"); sm.textContent = e.vi + " · " + e.p.map(g => MUSCLES[g].name).join(", "); nm.append(b, sm);
     const ctl = document.createElement("div"); ctl.className = "pe-ctl";
     const up = mkBtn("b b-secondary b-sm b-icon", "", () => progEdit(p => { if (i > 0) [p[i - 1], p[i]] = [p[i], p[i - 1]]; swapIdx = -1; }), "up");
@@ -1927,7 +1933,8 @@ function renderProgEditor() {
   });
   if (!plan.length) { const em = document.createElement("p"); em.className = "empty"; em.textContent = "Ngày này chưa có bài nào."; card.appendChild(em); }
   const row = document.createElement("div"); row.className = "btn-row";
-  row.append(mkBtn("b b-secondary b-md", "Thêm bài", () => openPicker(progDay, id => { $("w-picker").hidden = true; pickCb = null; progEdit(p => { p.push({ id, n: EX[id].sets }); }); }, have), "plus"));
+  const addTo = filter => () => openPicker(filter, id => { $("w-picker").hidden = true; pickCb = null; progEdit(p => { p.push({ id, n: EX[id].sets }); }); }, have);
+  row.append(mkBtn("b b-secondary b-md", "Thêm bài", addTo(progDay), "plus"), mkBtn("b b-secondary b-md", "Thêm khởi động / giãn cơ", addTo("mob"), "leaf"));
   const rs = mkBtn("b b-danger b-md", "Khôi phục mặc định");
   armConfirm(rs, "Bấm lần nữa để khôi phục", () => { programs.days[progDay] = DAYS[progDay].plan.map(id => ({ id, n: EX[id].sets })); swapIdx = -1; savePrograms(); renderProgEditor(); toast("Đã khôi phục giáo án " + DAYS[progDay].name + " mặc định."); });
   row.appendChild(rs);
@@ -1942,7 +1949,7 @@ function renderIdle() {
   $("w-prog").hidden = !!active || !editingProg;
   $("w-active").hidden = !active;
   if (active || editingProg) return;
-  renderToday(); paintMob(); renderFlex();
+  renderToday(); renderFlex();
   const nd = todayPick().t, box = $("ppl-buttons");
   box.textContent = "";
   for (const t of CYCLE) {
@@ -2019,12 +2026,9 @@ function startSession(type) {
   const plan = basePlan(type), dl = deloadOn();
   // In a deload week about 2/3 of the sets; `full` keeps the normal count for the next plan.
   let exercises = plan.map(x => dl ? { id: x.id, full: x.n, sets: blankSets(Math.max(1, Math.round(x.n * 2 / 3))) } : { id: x.id, sets: blankSets(x.n) });
-  const M = MOBILITY[type];
-  if (M && programs.mobility !== false) {
-    const have = new Set(exercises.map(x => x.id));
-    const block = ids => ids.filter(id => EX[id] && !have.has(id) && have.add(id)).map(id => ({ id, sets: blankSets(EX[id].sets) }));
-    exercises = block(M.warm).concat(exercises, block(M.cool.concat(MOB_FOCUS)));
-  }
+  // Warm-ups the user put in the day go first and stretches last, whatever order they were added in.
+  const rank = x => { const m = EX[x.id] && EX[x.id].mob; return m === "warm" ? 0 : m === "cool" ? 2 : 1; };
+  exercises = exercises.map((x, i) => [x, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(p => p[0]);
   active = { id: newId(), type, startedAt: Date.now(), restEnd: 0, restTotal: 0, exercises };
   saveActive(true); ensureAudio(); keepAwake();
   renderActive(); window.scrollTo(0, 0);
@@ -2052,7 +2056,7 @@ function ytLink(e) {
 }
 function demoFrame(e) {
   const box = document.createElement("div"); box.className = "demo";
-  const mk = (n, label) => { const im = document.createElement("img"); im.src = "img/" + e.id + "-" + n + ".jpg"; im.alt = e.name + ": tư thế " + label; im.decoding = "async"; return im; };
+  const mk = (n, label) => { const im = document.createElement("img"); im.src = "img/" + (e.img || e.id) + "-" + n + ".jpg"; im.alt = e.name + ": tư thế " + label; im.decoding = "async"; return im; };
   const a = mk(0, "bắt đầu"), b = mk(1, "kết thúc");
   if (reduceMotion) { box.classList.add("two"); box.append(a, b); return box; }
   box.appendChild(a);
@@ -2321,13 +2325,6 @@ function paintSound() {
 }
 $("w-sound").onclick = () => { soundOn = !soundOn; try { localStorage.setItem(SOUND_KEY, soundOn ? "1" : "0"); } catch (e) {} paintSound(); if (soundOn) ensureAudio(); };
 paintSound();
-function paintMob() {
-  const on = programs.mobility !== false, b = $("w-mob");
-  b.setAttribute("aria-pressed", String(on));
-  b.lastChild.textContent = "Khởi động & giãn cơ: " + (on ? "bật" : "tắt");
-}
-$("w-mob").onclick = () => { programs.mobility = programs.mobility === false; savePrograms(); paintMob(); };
-paintMob();
 
 /* Flexibility check every two weeks: toe-touch gap and back-scratch gap per side (cm, lower = better) */
 const FLEX = [["toe", "Gập người"], ["shR", "Vai, tay phải trên"], ["shL", "Vai, tay trái trên"]];
@@ -2501,7 +2498,7 @@ $("sum-save").onclick = () => {
   const s = {
     id: active.id, type: active.type, date: dateKey(new Date(active.startedAt)), startedAt: active.startedAt, endedAt: Date.now(),
     exercises: ex,                                                     // completed sets only
-    plan: active.exercises.filter(e => EX[e.id] && !EX[e.id].mob).map(e => ({ id: e.id, n: e.full || e.sets.length })), // what the next session of this type starts from (warm-up/stretch blocks are added fresh)
+    plan: active.exercises.filter(e => EX[e.id]).map(e => ({ id: e.id, n: e.full || e.sets.length })), // what the next session of this type starts from, warm-ups and stretches included
   };
   let prs = 0;
   active.exercises.forEach((ae, idx) => ae.sets.forEach((st, i) => { if (st.done && recordFor(ae.id, st.kg, st.reps, earlierSets(idx, i))) prs++; }));
@@ -2916,6 +2913,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=8914175cc6"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=f2df0b1842"));</script>
 </body>
 </html>
