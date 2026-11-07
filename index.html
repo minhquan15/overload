@@ -209,6 +209,25 @@ td .tools { display: flex; gap: 14px; }
 #flex-card { display: grid; gap: 12px; }
 #flex-card .c-head .meta.due { color: var(--accent); font-weight: 600; }
 .ft { display: grid; gap: 6px; }
+/* Body measurements tab */
+.bm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-bottom: var(--s3); }
+.bm-f { display: grid; gap: 4px; min-width: 0; }
+.bm-f > small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-f .num span { font-size: 12px; }
+.bm-date { height: 36px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--ink); font: 500 14px/1 var(--font-body); padding: 0 8px; color-scheme: dark light; }
+.bm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.bm-row:first-child { border-top: 0; padding-top: 0; }
+.bm-row b { font-size: 15px; }
+.bm-row .v { font: 600 20px/1 var(--font-data); font-variant-numeric: tabular-nums; text-align: right; }
+.bm-row .v small { font: 500 12px/1 var(--font-body); color: var(--muted); margin-left: 3px; }
+.bm-row .d { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bm-row svg { grid-column: 1 / -1; width: 100%; height: 34px; margin-top: 4px; overflow: visible; }
+.bm-row svg polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.bm-row svg circle { fill: var(--accent); }
+.bm-h { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.bm-h:first-child { border-top: 0; padding-top: 0; }
+.bm-h b { display: block; font-size: 14px; }
+.bm-h small { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .ft b { font-size: 15px; }
 .ft small { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .ft-in { max-width: 160px; }
@@ -495,6 +514,7 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
   <nav class="tabs" role="tablist" aria-label="Chế độ xem">
     <button role="tab" type="button" id="tab-tap" aria-controls="view-tap" aria-selected="true">Buổi tập</button>
     <button role="tab" type="button" id="tab-map" aria-controls="view-map" aria-selected="false" tabindex="-1">Bản đồ cơ</button>
+    <button role="tab" type="button" id="tab-body" aria-controls="view-body" aria-selected="false" tabindex="-1">Số đo</button>
   </nav>
 
   <section class="workout stack" id="view-tap" role="tabpanel" aria-labelledby="tab-tap">
@@ -602,6 +622,25 @@ html.sheet-open, html.sheet-open body { overflow: hidden; }
         <div class="chips" id="pk-filters"></div>
         <div class="pk-list" id="pk-list"></div>
       </div>
+  </section>
+
+  <section class="workout stack" id="view-body" role="tabpanel" aria-labelledby="tab-body" hidden>
+    <div class="card">
+      <div class="c-head"><p class="label">Ghi số đo</p><input class="bm-date" id="bm-date" type="date" aria-label="Ngày đo"></div>
+      <form id="bm-form" novalidate>
+        <div class="bm-grid" id="bm-fields"></div>
+        <button class="b b-primary b-md b-block" id="bm-save" type="submit">Lưu số đo</button>
+      </form>
+      <p class="meta">Đo buổi sáng, trước khi ăn và tập. Thước dây sát da, không siết; đo cùng một bên và cùng vị trí mỗi lần. Ô nào không đo thì để trống.</p>
+    </div>
+    <div class="card">
+      <div class="c-head"><p class="label">Thay đổi</p><span class="meta" id="bm-range"></span></div>
+      <div id="bm-trend"></div>
+    </div>
+    <div class="card">
+      <p class="label">Các lần đo</p>
+      <div id="bm-hist"></div>
+    </div>
   </section>
 
   <section class="stack" id="view-map" role="tabpanel" aria-labelledby="tab-map" hidden>
@@ -1165,6 +1204,7 @@ async function connectStore() {
       refreshAll();
       if (activeChanged) renderActive(); else renderIdle();
       if (pg) renderProgress();
+      if (!views.body.hidden && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#bm-form"))) { fillBodyForm(); renderBody(); }
     }, () => { userCol = null; storeFail(); });
   } catch (e) { userCol = null; }
 }
@@ -2467,6 +2507,111 @@ $("ft-save").onclick = () => {
   ["ft-toe", "ft-shR", "ft-shL"].forEach(i => { $(i).value = ""; });
   renderFlex(); toast("Đã lưu lần đo độ dẻo.");
 };
+/* Body measurements: programs.body = [{ date, weight, fat, neck, … }] sorted by date (synced with programs) */
+const BODY = [
+  ["weight", "Cân nặng", "kg"], ["fat", "Mỡ cơ thể", "%"],
+  ["neck", "Cổ", "cm"], ["shoulders", "Vai", "cm"],
+  ["chest", "Ngực", "cm"], ["waist", "Eo (ngang rốn)", "cm"],
+  ["hips", "Mông", "cm"], ["arm", "Bắp tay (gồng)", "cm"],
+  ["forearm", "Cẳng tay", "cm"], ["thigh", "Đùi", "cm"],
+  ["calf", "Bắp chân", "cm"],
+];
+const BODY_SHORT = { weight: "", fat: "mỡ", neck: "cổ", shoulders: "vai", chest: "ngực", waist: "eo", hips: "mông", arm: "tay", forearm: "cẳng tay", thigh: "đùi", calf: "bắp chân" };
+const bodyList = () => programs.body || [];
+const fmtSigned = n => (n > 0 ? "+" : n < 0 ? "−" : "±") + fmtNum(Math.abs(Math.round(n * 10) / 10));
+function bodyLast(k, before) {
+  const l = bodyList();
+  for (let i = l.length - 1; i >= 0; i--) if (l[i][k] != null && (!before || l[i].date < before)) return l[i];
+  return null;
+}
+function fillBodyForm() {
+  const date = $("bm-date").value || todayKey();
+  const cur = bodyList().find(r => r.date === date);
+  const box = $("bm-fields"); box.textContent = "";
+  for (const [k, label, unit] of BODY) {
+    const f = document.createElement("div"); f.className = "bm-f";
+    const t = document.createElement("small"); t.textContent = label;
+    const last = bodyLast(k, date);
+    const w = document.createElement("label"); w.className = "num";
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.inputMode = "decimal"; inp.autocomplete = "off"; inp.id = "bm-" + k;
+    inp.placeholder = last ? fmtNum(last[k]) : "—";
+    inp.value = cur && cur[k] != null ? fmtNum(cur[k]) : "";
+    inp.setAttribute("aria-label", label + ", " + unit + (last ? ", lần trước " + fmtNum(last[k]) : ""));
+    const u = document.createElement("span"); u.textContent = unit;
+    w.append(inp, u); f.append(t, w); box.appendChild(f);
+  }
+  $("bm-save").lastChild.textContent = cur ? "Cập nhật số đo " + fmtDate(date) : "Lưu số đo";
+}
+function sparkline(pts) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 100 30"); svg.setAttribute("preserveAspectRatio", "none"); svg.setAttribute("aria-hidden", "true");
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t || t0 + 1;
+  const vs = pts.map(p => p.v), lo = Math.min(...vs), hi = Math.max(...vs), span = hi - lo || 1;
+  const xy = pts.map(p => [((p.t - t0) / ((t1 - t0) || 1)) * 100, 27 - ((p.v - lo) / span) * 24]);
+  const pl = document.createElementNS(NS, "polyline");
+  pl.setAttribute("points", xy.map(a => a[0].toFixed(2) + "," + a[1].toFixed(2)).join(" "));
+  svg.appendChild(pl);
+  return svg;
+}
+function renderBody() {
+  const list = bodyList();
+  $("bm-range").textContent = list.length ? list.length + " lần đo · " + fmtDate(list[0].date) + " → " + fmtDate(list[list.length - 1].date) : "";
+  const tr = $("bm-trend"); tr.textContent = "";
+  for (const [k, label, unit] of BODY) {
+    const seq = list.filter(r => r[k] != null);
+    if (!seq.length) continue;
+    const last = seq[seq.length - 1], prev = seq[seq.length - 2], first = seq[0];
+    const row = document.createElement("div"); row.className = "bm-row";
+    const name = document.createElement("b"); name.textContent = label;
+    const v = document.createElement("span"); v.className = "v"; v.textContent = fmtNum(last[k]);
+    const u = document.createElement("small"); u.textContent = unit; v.appendChild(u);
+    const d = document.createElement("span"); d.className = "d";
+    d.textContent = !prev ? "Đo " + fmtDate(last.date) + ". Đo thêm lần nữa để thấy thay đổi."
+      : fmtSigned(last[k] - prev[k]) + " " + unit + " so với " + fmtDate(prev.date)
+        + (seq.length > 2 ? " · " + fmtSigned(last[k] - first[k]) + " " + unit + " từ " + fmtDate(first.date) : "");
+    row.append(name, v, d);
+    if (seq.length > 1) row.appendChild(sparkline(seq.slice(-30).map(r => ({ t: keyDate(r.date).getTime(), v: r[k] }))));
+    tr.appendChild(row);
+  }
+  if (!tr.childNodes.length) { const p = document.createElement("p"); p.className = "meta"; p.style.margin = "0"; p.textContent = "Chưa có số đo nào. Ghi lần đầu ở trên để có mốc so sánh; đo lại mỗi 2–4 tuần."; tr.appendChild(p); }
+  const h = $("bm-hist"); h.textContent = "";
+  for (const r of list.slice().reverse()) {
+    const row = document.createElement("div"); row.className = "bm-h";
+    const tx = document.createElement("div");
+    const b = document.createElement("b"); b.textContent = fmtDate(r.date) + "/" + r.date.slice(0, 4);
+    const sm = document.createElement("small");
+    sm.textContent = BODY.filter(([k]) => r[k] != null).map(([k, , unit]) => (BODY_SHORT[k] ? BODY_SHORT[k] + " " : "") + fmtNum(r[k]) + (unit === "cm" ? "" : " " + unit)).join(" · ");
+    tx.append(b, sm);
+    const ed = mkBtn("b b-ghost b-sm", "Sửa", () => { $("bm-date").value = r.date; fillBodyForm(); $("bm-date").scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" }); }, "edit");
+    ed.setAttribute("aria-label", "Sửa lần đo " + fmtDate(r.date));
+    const del = mkBtn("b b-ghost b-danger b-sm", "", null, "trash");
+    del.setAttribute("aria-label", "Xóa lần đo " + fmtDate(r.date));
+    armConfirm(del, "Xóa?", () => { programs.body = bodyList().filter(x => x.date !== r.date); savePrograms(); fillBodyForm(); renderBody(); toast("Đã xóa lần đo " + fmtDate(r.date) + "."); });
+    row.append(tx, ed, del); h.appendChild(row);
+  }
+  if (!list.length) { const p = document.createElement("p"); p.className = "meta"; p.style.margin = "0"; p.textContent = "Các lần đo sẽ hiện ở đây."; h.appendChild(p); }
+}
+$("bm-date").value = todayKey();
+$("bm-date").max = todayKey();
+$("bm-date").onchange = () => { if (!$("bm-date").value) $("bm-date").value = todayKey(); fillBodyForm(); };
+$("bm-form").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const date = $("bm-date").value || todayKey();
+  const r = { date };
+  let n = 0;
+  for (const [k] of BODY) {
+    const x = parseNum($("bm-" + k).value);
+    if (x != null && x > 0) { r[k] = Math.min(k === "fat" ? 80 : 500, Math.round(x * 10) / 10); n++; }
+  }
+  if (!n) { $("bm-" + BODY[0][0]).focus(); toast("Nhập ít nhất một số đo."); return; }
+  programs.body = bodyList().filter(x => x.date !== date).concat([r]).sort((a, b) => a.date < b.date ? -1 : 1).slice(-400);
+  savePrograms(); fillBodyForm(); renderBody();
+  toast("Đã lưu số đo " + fmtDate(date) + ".");
+});
+fillBodyForm();
+renderBody();
 function ensureAudio() {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2926,7 +3071,8 @@ function drawProgressChart(rows, M) {
 new ResizeObserver(() => { if (pg && $("pg-chart").clientWidth !== pgWidth) drawProgressChart(progressRows(pg.id), METRICS[pg.metric]); }).observe($("pg-chart"));
 
 /* Tabs and the link to the 3D map */
-const views = { tap: $("view-tap"), map: $("view-map") };
+const views = { tap: $("view-tap"), map: $("view-map"), body: $("view-body") };
+const TAB_ORDER = ["tap", "map", "body"];
 const TAB_KEY = "ban-do-co-bap.tab";
 function showTab(t) {
   for (const k in views) {
@@ -2935,14 +3081,18 @@ function showTab(t) {
     tb.setAttribute("aria-selected", String(k === t)); tb.tabIndex = k === t ? 0 : -1;
   }
   mapVisible = t === "map";
+  if (t === "body" && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#bm-form"))) { fillBodyForm(); renderBody(); }
   if (mapVisible) { loadModel(); resize(); refreshAll(); }   // sets ticked meanwhile change the weekly colors
   try { localStorage.setItem(TAB_KEY, t); } catch (e) {}
 }
 $("tab-tap").onclick = () => showTab("tap");
 $("tab-map").onclick = () => showTab("map");
+$("tab-body").onclick = () => showTab("body");
 $("tab-tap").parentElement.addEventListener("keydown", ev => {
   if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
-  const t = mapVisible ? "tap" : "map"; showTab(t); $("tab-" + t).focus();
+  const cur = TAB_ORDER.find(k => !views[k].hidden) || "tap";
+  const t = TAB_ORDER[(TAB_ORDER.indexOf(cur) + (ev.key === "ArrowRight" ? 1 : TAB_ORDER.length - 1)) % TAB_ORDER.length];
+  showTab(t); $("tab-" + t).focus();
 });
 function showExerciseOnMap(id) {
   const e = EX[id];
@@ -2962,9 +3112,9 @@ renderActive();
 if (active) keepAwake();
 let savedTab = null;
 try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) {}
-const hashTab = location.hash === "#ban-do" ? "map" : location.hash === "#buoi-tap" ? "tap" : null;
+const hashTab = location.hash === "#ban-do" ? "map" : location.hash === "#buoi-tap" ? "tap" : location.hash === "#so-do" ? "body" : null;
 const phone = window.matchMedia && matchMedia("(max-width: 860px)").matches;
-showTab(hashTab || (active ? "tap" : savedTab || (phone ? "tap" : "map")));
+showTab(hashTab || (active ? "tap" : (views[savedTab] && savedTab) || (phone ? "tap" : "map")));
 connectStore();
 setupBackup();
 })();
@@ -2972,6 +3122,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=7b82f7630f"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=3a989a973f"));</script>
 </body>
 </html>
