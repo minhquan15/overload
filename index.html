@@ -1489,6 +1489,7 @@ function loadModel() {
       o.userData.label = (parts[3] || "").replace(/_/g, " ").replace(/ \d+$/, "");
       layerMeshes[layer].push(o);
     });
+    uncoverRectus(root);
     applyLayers();
     poseReady = setupPose(root);
     if (!poseReady) document.querySelector(".pose").hidden = true;
@@ -1505,6 +1506,55 @@ function loadModel() {
     hint.textContent = hintDefault;
     modelRequested = false;
   });
+}
+
+// In the model the oblique meshes carry their aponeuroses, which wrap over the front of the
+// rectus abdominis. They would hide the abs: the visible "six-pack" would be oblique, take its
+// color and catch its taps. Drop every oblique triangle inside the rectus footprint (front view,
+// 1 cm height bands) so the abs show and color on their own.
+function uncoverRectus(root) {
+  root.updateMatrixWorld(true);
+  const BAND = 0.01, bands = new Map(), v = new THREE.Vector3();
+  const rectus = [], obliques = [];
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    if (o.userData.group === "abs") rectus.push(o);
+    else if (o.userData.group === "obliques") obliques.push(o);
+  });
+  for (const o of rectus) {
+    const pos = o.geometry.getAttribute("position");
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      const k = Math.floor(v.y / BAND), b = bands.get(k);
+      if (!b) bands.set(k, { x0: v.x, x1: v.x, z0: v.z });
+      else { b.x0 = Math.min(b.x0, v.x); b.x1 = Math.max(b.x1, v.x); b.z0 = Math.min(b.z0, v.z); }
+    }
+  }
+  if (!bands.size) return;
+  // Their ambient occlusion was baked under that sheet, so it is far too dark: lift it.
+  for (const o of rectus) {
+    const col = o.geometry.getAttribute("color");
+    if (!col) continue;
+    // glTF stores it as normalized integers; three r128 get/setX work on the raw values
+    const max = !col.normalized ? 1 : col.array instanceof Uint8Array ? 255 : col.array instanceof Uint16Array ? 65535 : 1;
+    for (let i = 0; i < col.count; i++) col.setX(i, Math.round((0.75 + 0.25 * col.getX(i) / max) * max * 1e6) / 1e6);
+    col.needsUpdate = true;
+  }
+  const a = new THREE.Vector3(), c = new THREE.Vector3();
+  for (const o of obliques) {
+    const g = o.geometry, idx = g.index;
+    if (!idx) continue;
+    const pos = g.getAttribute("position"), keep = [];
+    for (let t = 0; t < idx.count; t += 3) {
+      a.set(0, 0, 0);
+      for (let j = 0; j < 3; j++) a.add(v.fromBufferAttribute(pos, idx.getX(t + j)));
+      c.copy(a).multiplyScalar(1 / 3).applyMatrix4(o.matrixWorld);
+      const b = bands.get(Math.floor(c.y / BAND));
+      const inside = b && c.x > b.x0 - 0.004 && c.x < b.x1 + 0.004 && c.z > b.z0 - 0.02;
+      if (!inside) keep.push(idx.getX(t), idx.getX(t + 1), idx.getX(t + 2));
+    }
+    if (keep.length < idx.count) g.setIndex(keep);
+  }
 }
 
 // Soft contact shadow under the feet
@@ -3125,6 +3175,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=0a6ec037db"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=f41f4d841f"));</script>
 </body>
 </html>
