@@ -3098,6 +3098,9 @@ function showExerciseOnMap(id) {
   const e = EX[id];
   if (!e) return;
   showTab("map");
+  // Recovery/weekly colors paint untrained muscles pale grey, so a lit exercise would barely show:
+  // looking at an exercise always switches to the anatomy colors.
+  if (mode !== "anat") setMode("anat");
   select(e.p[0]);
   exHL = { p: new Set(e.p), s: new Set(e.s) };
   showGroups(e.p);
@@ -3122,6 +3125,6 @@ setupBackup();
 
 <!-- v2: exercise images -->
 
-<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=3a989a973f"));</script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=0a6ec037db"));</script>
 </body>
 </html>
